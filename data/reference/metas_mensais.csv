@@ -1,0 +1,278 @@
+﻿ano_mes;canal;unidade_id;cidade;uf;meta_receita_liquida;meta_pedidos;meta_ticket_medio;meta_margem_bruta_pct;meta_taxa_devolucao_pct;inicio_operacao;observacao
+2018-11;loja_fisica;LJ-BQ;Barbacena;MG;21344.40;158;135.09;0.52;0.04;2018-11-01;meta_historica
+2018-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;24393.60;178;137.04;0.52;0.04;2018-11-01;meta_historica
+2018-12;loja_fisica;LJ-BQ;Barbacena;MG;22140.55;164;135.00;0.52;0.04;2018-11-01;meta_historica
+2018-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;25303.49;185;136.78;0.52;0.04;2018-11-01;meta_historica
+2019-01;loja_fisica;LJ-BQ;Barbacena;MG;23326.90;173;134.84;0.52;0.04;2018-11-01;meta_historica
+2019-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;26659.32;195;136.71;0.52;0.04;2018-11-01;meta_historica
+2019-02;loja_fisica;LJ-BQ;Barbacena;MG;27447.30;203;135.21;0.52;0.04;2018-11-01;meta_historica
+2019-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;31368.35;229;136.98;0.52;0.04;2018-11-01;meta_historica
+2019-03;loja_fisica;LJ-BQ;Barbacena;MG;25743.90;191;134.78;0.52;0.04;2018-11-01;meta_historica
+2019-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;29421.60;215;136.84;0.52;0.04;2018-11-01;meta_historica
+2019-04;loja_fisica;LJ-BQ;Barbacena;MG;21008.40;156;134.67;0.52;0.04;2018-11-01;meta_historica
+2019-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;24009.60;176;136.42;0.52;0.04;2018-11-01;meta_historica
+2019-05;loja_fisica;LJ-BQ;Barbacena;MG;23135.41;171;135.29;0.52;0.04;2018-11-01;meta_historica
+2019-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;26440.47;193;137.00;0.52;0.04;2018-11-01;meta_historica
+2019-06;loja_fisica;LJ-BQ;Barbacena;MG;26857.00;199;134.96;0.52;0.04;2018-11-01;meta_historica
+2019-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;30693.72;224;137.03;0.52;0.04;2018-11-01;meta_historica
+2019-07;loja_fisica;LJ-BQ;Barbacena;MG;22248.24;165;134.84;0.52;0.04;2018-11-01;meta_historica
+2019-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;25426.56;186;136.70;0.52;0.04;2018-11-01;meta_historica
+2019-08;loja_fisica;LJ-BQ;Barbacena;MG;25380.90;188;135.00;0.52;0.04;2018-11-01;meta_historica
+2019-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;29006.75;212;136.82;0.52;0.04;2018-11-01;meta_historica
+2019-09;loja_fisica;LJ-BQ;Barbacena;MG;25843.78;191;135.31;0.52;0.04;2018-11-01;meta_historica
+2019-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;29535.74;216;136.74;0.52;0.04;2018-11-01;meta_historica
+2019-10;loja_fisica;LJ-BQ;Barbacena;MG;23488.08;174;134.99;0.52;0.04;2018-11-01;meta_historica
+2019-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;26843.52;196;136.96;0.52;0.04;2018-11-01;meta_historica
+2019-11;loja_fisica;LJ-BQ;Barbacena;MG;35852.04;265;135.29;0.52;0.04;2018-11-01;meta_historica
+2019-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;40973.76;299;137.04;0.52;0.04;2018-11-01;meta_historica
+2019-12;loja_fisica;LJ-BQ;Barbacena;MG;28204.98;209;134.95;0.52;0.04;2018-11-01;meta_historica
+2019-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;32234.27;236;136.59;0.52;0.04;2018-11-01;meta_historica
+2020-01;loja_fisica;LJ-BQ;Barbacena;MG;20638.77;153;134.89;0.52;0.04;2018-11-01;meta_historica
+2020-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;23587.16;172;137.13;0.52;0.04;2018-11-01;meta_historica
+2020-02;loja_fisica;LJ-BQ;Barbacena;MG;24184.61;179;135.11;0.52;0.04;2018-11-01;meta_historica
+2020-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;27639.55;202;136.83;0.52;0.04;2018-11-01;meta_historica
+2020-03;loja_fisica;LJ-BQ;Barbacena;MG;11991.03;89;134.73;0.52;0.04;2018-11-01;meta_historica
+2020-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;13704.04;100;137.04;0.52;0.04;2018-11-01;meta_historica
+2020-04;loja_fisica;LJ-BQ;Barbacena;MG;11387.81;85;133.97;0.52;0.04;2018-11-01;meta_historica
+2020-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;13014.64;95;137.00;0.52;0.04;2018-11-01;meta_historica
+2020-04;ecommerce;EC-BR;Brasil;BR;30846.82;237;130.16;0.48;0.06;2020-04-01;meta_historica
+2020-05;loja_fisica;LJ-BQ;Barbacena;MG;14577.00;108;134.97;0.52;0.04;2018-11-01;meta_historica
+2020-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;16659.43;122;136.55;0.52;0.04;2018-11-01;meta_historica
+2020-05;ecommerce;EC-BR;Brasil;BR;39178.86;301;130.16;0.48;0.06;2020-04-01;meta_historica
+2020-06;loja_fisica;LJ-BQ;Barbacena;MG;12337.80;92;134.11;0.52;0.04;2018-11-01;meta_historica
+2020-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;14100.35;103;136.90;0.52;0.04;2018-11-01;meta_historica
+2020-06;ecommerce;EC-BR;Brasil;BR;33697.20;259;130.11;0.48;0.06;2020-04-01;meta_historica
+2020-07;loja_fisica;LJ-BQ;Barbacena;MG;19244.40;143;134.58;0.52;0.04;2018-11-01;meta_historica
+2020-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;21993.60;161;136.61;0.52;0.04;2018-11-01;meta_historica
+2020-07;ecommerce;EC-BR;Brasil;BR;32865.88;253;129.90;0.48;0.06;2020-04-01;meta_historica
+2020-08;loja_fisica;LJ-BQ;Barbacena;MG;25397.74;188;135.09;0.52;0.04;2018-11-01;meta_historica
+2020-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;29025.98;212;136.92;0.52;0.04;2018-11-01;meta_historica
+2020-08;ecommerce;EC-BR;Brasil;BR;35785.28;275;130.13;0.48;0.06;2020-04-01;meta_historica
+2020-09;loja_fisica;LJ-BQ;Barbacena;MG;22208.52;164;135.42;0.52;0.04;2018-11-01;meta_historica
+2020-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;25381.17;186;136.46;0.52;0.04;2018-11-01;meta_historica
+2020-09;ecommerce;EC-BR;Brasil;BR;31707.31;244;129.95;0.48;0.06;2020-04-01;meta_historica
+2020-10;loja_fisica;LJ-BQ;Barbacena;MG;20121.36;149;135.04;0.52;0.04;2018-11-01;meta_historica
+2020-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;22995.84;168;136.88;0.52;0.04;2018-11-01;meta_historica
+2020-10;ecommerce;EC-BR;Brasil;BR;29070.79;224;129.78;0.48;0.06;2020-04-01;meta_historica
+2020-11;loja_fisica;LJ-BQ;Barbacena;MG;26946.06;199;135.41;0.52;0.04;2018-11-01;meta_historica
+2020-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;30795.49;225;136.87;0.52;0.04;2018-11-01;meta_historica
+2020-11;ecommerce;EC-BR;Brasil;BR;38493.44;296;130.05;0.48;0.06;2020-04-01;meta_historica
+2020-12;loja_fisica;LJ-BQ;Barbacena;MG;24018.96;178;134.94;0.52;0.04;2018-11-01;meta_historica
+2020-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;27450.24;201;136.57;0.52;0.04;2018-11-01;meta_historica
+2020-12;ecommerce;EC-BR;Brasil;BR;34707.25;267;129.99;0.48;0.06;2020-04-01;meta_historica
+2021-01;loja_fisica;LJ-BQ;Barbacena;MG;35943.33;266;135.13;0.52;0.04;2018-11-01;meta_historica
+2021-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;41078.09;300;136.93;0.52;0.04;2018-11-01;meta_historica
+2021-01;ecommerce;EC-BR;Brasil;BR;50058.01;385;130.02;0.48;0.06;2020-04-01;meta_historica
+2021-02;loja_fisica;LJ-BQ;Barbacena;MG;31620.27;234;135.13;0.52;0.04;2018-11-01;meta_historica
+2021-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;36137.45;264;136.88;0.52;0.04;2018-11-01;meta_historica
+2021-02;ecommerce;EC-BR;Brasil;BR;44555.00;343;129.90;0.48;0.06;2020-04-01;meta_historica
+2021-03;loja_fisica;LJ-BQ;Barbacena;MG;29066.29;215;135.19;0.52;0.04;2018-11-01;meta_historica
+2021-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;33218.62;243;136.70;0.52;0.04;2018-11-01;meta_historica
+2021-03;ecommerce;EC-BR;Brasil;BR;41361.94;318;130.07;0.48;0.06;2020-04-01;meta_historica
+2021-04;loja_fisica;LJ-BQ;Barbacena;MG;27532.68;204;134.96;0.52;0.04;2018-11-01;meta_historica
+2021-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;31465.92;230;136.81;0.52;0.04;2018-11-01;meta_historica
+2021-04;ecommerce;EC-BR;Brasil;BR;39505.26;304;129.95;0.48;0.06;2020-04-01;meta_historica
+2021-05;loja_fisica;LJ-BQ;Barbacena;MG;35154.76;260;135.21;0.52;0.04;2018-11-01;meta_historica
+2021-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;40176.86;293;137.12;0.52;0.04;2018-11-01;meta_historica
+2021-05;ecommerce;EC-BR;Brasil;BR;49953.74;384;130.09;0.48;0.06;2020-04-01;meta_historica
+2021-06;loja_fisica;LJ-BQ;Barbacena;MG;29681.95;220;134.92;0.52;0.04;2018-11-01;meta_historica
+2021-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;33922.22;248;136.78;0.52;0.04;2018-11-01;meta_historica
+2021-06;ecommerce;EC-BR;Brasil;BR;42781.31;329;130.03;0.48;0.06;2020-04-01;meta_historica
+2021-07;loja_fisica;LJ-BQ;Barbacena;MG;28636.44;212;135.08;0.52;0.04;2018-11-01;meta_historica
+2021-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;32727.36;239;136.93;0.52;0.04;2018-11-01;meta_historica
+2021-07;ecommerce;EC-BR;Brasil;BR;41554.52;320;129.86;0.48;0.06;2020-04-01;meta_historica
+2021-08;loja_fisica;LJ-BQ;Barbacena;MG;32484.88;240;135.35;0.52;0.04;2018-11-01;meta_historica
+2021-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;37125.58;271;136.99;0.52;0.04;2018-11-01;meta_historica
+2021-08;ecommerce;EC-BR;Brasil;BR;46974.54;361;130.12;0.48;0.06;2020-04-01;meta_historica
+2021-09;loja_fisica;LJ-BQ;Barbacena;MG;32896.95;243;135.38;0.52;0.04;2018-11-01;meta_historica
+2021-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;37596.52;275;136.71;0.52;0.04;2018-11-01;meta_historica
+2021-09;ecommerce;EC-BR;Brasil;BR;47734.23;367;130.07;0.48;0.06;2020-04-01;meta_historica
+2021-10;loja_fisica;LJ-BQ;Barbacena;MG;35093.44;260;134.97;0.52;0.04;2018-11-01;meta_historica
+2021-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;40106.78;293;136.88;0.52;0.04;2018-11-01;meta_historica
+2021-10;ecommerce;EC-BR;Brasil;BR;50939.00;392;129.95;0.48;0.06;2020-04-01;meta_historica
+2021-11;loja_fisica;LJ-BQ;Barbacena;MG;39742.72;294;135.18;0.52;0.04;2018-11-01;meta_historica
+2021-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;45420.25;332;136.81;0.52;0.04;2018-11-01;meta_historica
+2021-11;ecommerce;EC-BR;Brasil;BR;57531.54;442;130.16;0.48;0.06;2020-04-01;meta_historica
+2021-12;loja_fisica;LJ-BQ;Barbacena;MG;35352.21;261;135.45;0.52;0.04;2018-11-01;meta_historica
+2021-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;40402.52;295;136.96;0.52;0.04;2018-11-01;meta_historica
+2021-12;ecommerce;EC-BR;Brasil;BR;51694.44;397;130.21;0.48;0.06;2020-04-01;meta_historica
+2022-01;loja_fisica;LJ-BQ;Barbacena;MG;52550.40;388;135.44;0.52;0.04;2018-11-01;meta_historica
+2022-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;60057.60;438;137.12;0.52;0.04;2018-11-01;meta_historica
+2022-01;ecommerce;EC-BR;Brasil;BR;67435.37;518;130.18;0.48;0.06;2020-04-01;meta_historica
+2022-02;loja_fisica;LJ-BQ;Barbacena;MG;45595.20;337;135.30;0.52;0.04;2018-11-01;meta_historica
+2022-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;52108.80;380;137.13;0.52;0.04;2018-11-01;meta_historica
+2022-02;ecommerce;EC-BR;Brasil;BR;59829.00;460;130.06;0.48;0.06;2020-04-01;meta_historica
+2022-03;loja_fisica;LJ-BQ;Barbacena;MG;41344.80;306;135.11;0.52;0.04;2018-11-01;meta_historica
+2022-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;47251.20;345;136.96;0.52;0.04;2018-11-01;meta_historica
+2022-03;ecommerce;EC-BR;Brasil;BR;55368.43;426;129.97;0.48;0.06;2020-04-01;meta_historica
+2022-04;loja_fisica;LJ-BQ;Barbacena;MG;45595.20;337;135.30;0.52;0.04;2018-11-01;meta_historica
+2022-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;52108.80;380;137.13;0.52;0.04;2018-11-01;meta_historica
+2022-04;ecommerce;EC-BR;Brasil;BR;61593.00;473;130.22;0.48;0.06;2020-04-01;meta_historica
+2022-05;loja_fisica;LJ-BQ;Barbacena;MG;41731.20;309;135.05;0.52;0.04;2018-11-01;meta_historica
+2022-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;47692.80;348;137.05;0.52;0.04;2018-11-01;meta_historica
+2022-05;ecommerce;EC-BR;Brasil;BR;57477.00;442;130.04;0.48;0.06;2020-04-01;meta_historica
+2022-06;loja_fisica;LJ-BQ;Barbacena;MG;40572.00;300;135.24;0.52;0.04;2018-11-01;meta_historica
+2022-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;46368.00;339;136.78;0.52;0.04;2018-11-01;meta_historica
+2022-06;ecommerce;EC-BR;Brasil;BR;56767.87;436;130.20;0.48;0.06;2020-04-01;meta_historica
+2022-07;loja_fisica;LJ-BQ;Barbacena;MG;45595.20;337;135.30;0.52;0.04;2018-11-01;meta_historica
+2022-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;52108.80;380;137.13;0.52;0.04;2018-11-01;meta_historica
+2022-07;ecommerce;EC-BR;Brasil;BR;64239.00;494;130.04;0.48;0.06;2020-04-01;meta_historica
+2022-08;loja_fisica;LJ-BQ;Barbacena;MG;43276.80;320;135.24;0.52;0.04;2018-11-01;meta_historica
+2022-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;49459.20;361;137.01;0.52;0.04;2018-11-01;meta_historica
+2022-08;ecommerce;EC-BR;Brasil;BR;61995.19;477;129.97;0.48;0.06;2020-04-01;meta_historica
+2022-09;loja_fisica;LJ-BQ;Barbacena;MG;43276.80;320;135.24;0.52;0.04;2018-11-01;meta_historica
+2022-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;49459.20;361;137.01;0.52;0.04;2018-11-01;meta_historica
+2022-09;ecommerce;EC-BR;Brasil;BR;62834.86;483;130.09;0.48;0.06;2020-04-01;meta_historica
+2022-10;loja_fisica;LJ-BQ;Barbacena;MG;45595.20;337;135.30;0.52;0.04;2018-11-01;meta_historica
+2022-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;52108.80;380;137.13;0.52;0.04;2018-11-01;meta_historica
+2022-10;ecommerce;EC-BR;Brasil;BR;66885.00;514;130.13;0.48;0.06;2020-04-01;meta_historica
+2022-11;loja_fisica;LJ-BQ;Barbacena;MG;51004.80;377;135.29;0.52;0.04;2018-11-01;meta_historica
+2022-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;58291.20;426;136.83;0.52;0.04;2018-11-01;meta_historica
+2022-11;ecommerce;EC-BR;Brasil;BR;75356.90;579;130.15;0.48;0.06;2020-04-01;meta_historica
+2022-12;loja_fisica;LJ-BQ;Barbacena;MG;44822.40;331;135.42;0.52;0.04;2018-11-01;meta_historica
+2022-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;51225.60;374;136.97;0.52;0.04;2018-11-01;meta_historica
+2022-12;ecommerce;EC-BR;Brasil;BR;67550.62;519;130.16;0.48;0.06;2020-04-01;meta_historica
+2023-01;loja_fisica;LJ-BQ;Barbacena;MG;49560.00;366;135.41;0.52;0.04;2018-11-01;meta_historica
+2023-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;56640.00;413;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-01;ecommerce;EC-BR;Brasil;BR;76815.20;590;130.20;0.48;0.06;2020-04-01;meta_historica
+2023-02;loja_fisica;LJ-BQ;Barbacena;MG;49560.00;366;135.41;0.52;0.04;2018-11-01;meta_historica
+2023-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;56640.00;413;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-02;ecommerce;EC-BR;Brasil;BR;77789.60;598;130.08;0.48;0.06;2020-04-01;meta_historica
+2023-03;loja_fisica;LJ-BQ;Barbacena;MG;44940.00;332;135.36;0.52;0.04;2018-11-01;meta_historica
+2023-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;51360.00;375;136.96;0.52;0.04;2018-11-01;meta_historica
+2023-03;ecommerce;EC-BR;Brasil;BR;71832.77;552;130.13;0.48;0.06;2020-04-01;meta_historica
+2023-04;loja_fisica;LJ-BQ;Barbacena;MG;49560.00;366;135.41;0.52;0.04;2018-11-01;meta_historica
+2023-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;56640.00;413;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-04;ecommerce;EC-BR;Brasil;BR;79738.40;613;130.08;0.48;0.06;2020-04-01;meta_historica
+2023-05;loja_fisica;LJ-BQ;Barbacena;MG;45360.00;335;135.40;0.52;0.04;2018-11-01;meta_historica
+2023-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;51840.00;378;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-05;ecommerce;EC-BR;Brasil;BR;74255.78;571;130.05;0.48;0.06;2020-04-01;meta_historica
+2023-06;loja_fisica;LJ-BQ;Barbacena;MG;44100.00;326;135.28;0.52;0.04;2018-11-01;meta_historica
+2023-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;50400.00;368;136.96;0.52;0.04;2018-11-01;meta_historica
+2023-06;ecommerce;EC-BR;Brasil;BR;72755.20;559;130.15;0.48;0.06;2020-04-01;meta_historica
+2023-07;loja_fisica;LJ-BQ;Barbacena;MG;49560.00;366;135.41;0.52;0.04;2018-11-01;meta_historica
+2023-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;56640.00;413;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-07;ecommerce;EC-BR;Brasil;BR;81200.00;624;130.13;0.48;0.06;2020-04-01;meta_historica
+2023-08;loja_fisica;LJ-BQ;Barbacena;MG;47040.00;348;135.17;0.52;0.04;2018-11-01;meta_historica
+2023-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;53760.00;393;136.79;0.52;0.04;2018-11-01;meta_historica
+2023-08;ecommerce;EC-BR;Brasil;BR;77302.40;594;130.14;0.48;0.06;2020-04-01;meta_historica
+2023-09;loja_fisica;LJ-BQ;Barbacena;MG;54600.00;403;135.48;0.52;0.04;2018-11-01;meta_historica
+2023-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;62400.00;455;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-09;ecommerce;EC-BR;Brasil;BR;88995.20;684;130.11;0.48;0.06;2020-04-01;meta_historica
+2023-10;loja_fisica;LJ-BQ;Barbacena;MG;42000.00;310;135.48;0.52;0.04;2018-11-01;meta_historica
+2023-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;48000.00;350;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-10;ecommerce;EC-BR;Brasil;BR;69507.20;534;130.16;0.48;0.06;2020-04-01;meta_historica
+2023-11;loja_fisica;LJ-BQ;Barbacena;MG;55440.00;410;135.22;0.52;0.04;2018-11-01;meta_historica
+2023-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;63360.00;462;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-11;ecommerce;EC-BR;Brasil;BR;90294.40;694;130.11;0.48;0.06;2020-04-01;meta_historica
+2023-12;loja_fisica;LJ-BQ;Barbacena;MG;56280.00;416;135.29;0.52;0.04;2018-11-01;meta_historica
+2023-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;64320.00;469;137.14;0.52;0.04;2018-11-01;meta_historica
+2023-12;ecommerce;EC-BR;Brasil;BR;91593.60;704;130.10;0.48;0.06;2020-04-01;meta_historica
+2024-01;loja_fisica;LJ-BQ;Barbacena;MG;53524.80;396;135.16;0.52;0.04;2018-11-01;meta_historica
+2024-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;61171.20;447;136.85;0.52;0.04;2018-11-01;meta_historica
+2024-01;ecommerce;EC-BR;Brasil;BR;91000.00;699;130.19;0.48;0.06;2020-04-01;meta_historica
+2024-02;loja_fisica;LJ-BQ;Barbacena;MG;53524.80;396;135.16;0.52;0.04;2018-11-01;meta_historica
+2024-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;61171.20;447;136.85;0.52;0.04;2018-11-01;meta_historica
+2024-02;ecommerce;EC-BR;Brasil;BR;91000.00;699;130.19;0.48;0.06;2020-04-01;meta_historica
+2024-03;loja_fisica;LJ-BQ;Barbacena;MG;56700.00;419;135.32;0.52;0.04;2018-11-01;meta_historica
+2024-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;64800.00;473;137.00;0.52;0.04;2018-11-01;meta_historica
+2024-03;ecommerce;EC-BR;Brasil;BR;96096.00;738;130.21;0.48;0.06;2020-04-01;meta_historica
+2024-04;loja_fisica;LJ-BQ;Barbacena;MG;45360.00;335;135.40;0.52;0.04;2018-11-01;meta_historica
+2024-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;51840.00;378;137.14;0.52;0.04;2018-11-01;meta_historica
+2024-04;ecommerce;EC-BR;Brasil;BR;77896.00;599;130.04;0.48;0.06;2020-04-01;meta_historica
+2024-05;loja_fisica;LJ-BQ;Barbacena;MG;48988.80;362;135.33;0.52;0.04;2018-11-01;meta_historica
+2024-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;55987.20;409;136.89;0.52;0.04;2018-11-01;meta_historica
+2024-05;ecommerce;EC-BR;Brasil;BR;83720.00;643;130.20;0.48;0.06;2020-04-01;meta_historica
+2024-06;loja_fisica;LJ-BQ;Barbacena;MG;55792.80;412;135.42;0.52;0.04;2018-11-01;meta_historica
+2024-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;63763.20;465;137.13;0.52;0.04;2018-11-01;meta_historica
+2024-06;ecommerce;EC-BR;Brasil;BR;94640.00;727;130.18;0.48;0.06;2020-04-01;meta_historica
+2024-07;loja_fisica;LJ-BQ;Barbacena;MG;45360.00;335;135.40;0.52;0.04;2018-11-01;meta_historica
+2024-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;51840.00;378;137.14;0.52;0.04;2018-11-01;meta_historica
+2024-07;ecommerce;EC-BR;Brasil;BR;77896.00;599;130.04;0.48;0.06;2020-04-01;meta_historica
+2024-08;loja_fisica;LJ-BQ;Barbacena;MG;50803.20;375;135.48;0.52;0.04;2018-11-01;meta_historica
+2024-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;58060.80;424;136.94;0.52;0.04;2018-11-01;meta_historica
+2024-08;ecommerce;EC-BR;Brasil;BR;86632.00;666;130.08;0.48;0.06;2020-04-01;meta_historica
+2024-09;loja_fisica;LJ-BQ;Barbacena;MG;50803.20;375;135.48;0.52;0.04;2018-11-01;meta_historica
+2024-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;58060.80;424;136.94;0.52;0.04;2018-11-01;meta_historica
+2024-09;ecommerce;EC-BR;Brasil;BR;86632.00;666;130.08;0.48;0.06;2020-04-01;meta_historica
+2024-10;loja_fisica;LJ-BQ;Barbacena;MG;45360.00;335;135.40;0.52;0.04;2018-11-01;meta_historica
+2024-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;51840.00;378;137.14;0.52;0.04;2018-11-01;meta_historica
+2024-10;ecommerce;EC-BR;Brasil;BR;77896.00;599;130.04;0.48;0.06;2020-04-01;meta_historica
+2024-11;loja_fisica;LJ-BQ;Barbacena;MG;68040.00;503;135.27;0.52;0.04;2018-11-01;meta_historica
+2024-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;77760.00;567;137.14;0.52;0.04;2018-11-01;meta_historica
+2024-11;ecommerce;EC-BR;Brasil;BR;114296.00;878;130.18;0.48;0.06;2020-04-01;meta_historica
+2024-12;loja_fisica;LJ-BQ;Barbacena;MG;52617.60;389;135.26;0.52;0.04;2018-11-01;meta_historica
+2024-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;60134.40;439;136.98;0.52;0.04;2018-11-01;meta_historica
+2024-12;ecommerce;EC-BR;Brasil;BR;89544.00;688;130.15;0.48;0.06;2020-04-01;meta_historica
+2025-01;loja_fisica;LJ-BQ;Barbacena;MG;57985.20;428;135.48;0.52;0.04;2018-11-01;meta_historica
+2025-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;66268.80;484;136.92;0.52;0.04;2018-11-01;meta_historica
+2025-01;ecommerce;EC-BR;Brasil;BR;101500.00;780;130.13;0.48;0.06;2020-04-01;meta_historica
+2025-02;loja_fisica;LJ-BQ;Barbacena;MG;66830.40;494;135.28;0.52;0.04;2018-11-01;meta_historica
+2025-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;76377.60;557;137.12;0.52;0.04;2018-11-01;meta_historica
+2025-02;ecommerce;EC-BR;Brasil;BR;116116.00;892;130.17;0.48;0.06;2020-04-01;meta_historica
+2025-03;loja_fisica;LJ-BQ;Barbacena;MG;61425.00;454;135.30;0.52;0.04;2018-11-01;meta_historica
+2025-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;70200.00;512;137.11;0.52;0.04;2018-11-01;meta_historica
+2025-03;ecommerce;EC-BR;Brasil;BR;107184.00;824;130.08;0.48;0.06;2020-04-01;meta_historica
+2025-04;loja_fisica;LJ-BQ;Barbacena;MG;49140.00;363;135.37;0.52;0.04;2018-11-01;meta_historica
+2025-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;56160.00;410;136.98;0.52;0.04;2018-11-01;meta_historica
+2025-04;ecommerce;EC-BR;Brasil;BR;86884.00;668;130.07;0.48;0.06;2020-04-01;meta_historica
+2025-05;loja_fisica;LJ-BQ;Barbacena;MG;53071.20;392;135.39;0.52;0.04;2018-11-01;meta_historica
+2025-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;60652.80;443;136.91;0.52;0.04;2018-11-01;meta_historica
+2025-05;ecommerce;EC-BR;Brasil;BR;93380.00;718;130.06;0.48;0.06;2020-04-01;meta_historica
+2025-06;loja_fisica;LJ-BQ;Barbacena;MG;51597.00;381;135.43;0.52;0.04;2018-11-01;meta_historica
+2025-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;58968.00;430;137.13;0.52;0.04;2018-11-01;meta_historica
+2025-06;ecommerce;EC-BR;Brasil;BR;90944.00;699;130.11;0.48;0.06;2020-04-01;meta_historica
+2025-07;loja_fisica;LJ-BQ;Barbacena;MG;49140.00;363;135.37;0.52;0.04;2018-11-01;meta_historica
+2025-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;56160.00;410;136.98;0.52;0.04;2018-11-01;meta_historica
+2025-07;ecommerce;EC-BR;Brasil;BR;86884.00;668;130.07;0.48;0.06;2020-04-01;meta_historica
+2025-08;loja_fisica;LJ-BQ;Barbacena;MG;63882.00;472;135.34;0.52;0.04;2018-11-01;meta_historica
+2025-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;73008.00;533;136.98;0.52;0.04;2018-11-01;meta_historica
+2025-08;ecommerce;EC-BR;Brasil;BR;111244.00;855;130.11;0.48;0.06;2020-04-01;meta_historica
+2025-09;loja_fisica;LJ-BQ;Barbacena;MG;55036.80;407;135.23;0.52;0.04;2018-11-01;meta_historica
+2025-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;62899.20;459;137.04;0.52;0.04;2018-11-01;meta_historica
+2025-09;ecommerce;EC-BR;Brasil;BR;96628.00;742;130.23;0.48;0.06;2020-04-01;meta_historica
+2025-10;loja_fisica;LJ-BQ;Barbacena;MG;49140.00;363;135.37;0.52;0.04;2018-11-01;meta_historica
+2025-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;56160.00;410;136.98;0.52;0.04;2018-11-01;meta_historica
+2025-10;ecommerce;EC-BR;Brasil;BR;86884.00;668;130.07;0.48;0.06;2020-04-01;meta_historica
+2025-11;loja_fisica;LJ-BQ;Barbacena;MG;73710.00;545;135.25;0.52;0.04;2018-11-01;meta_historica
+2025-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;84240.00;615;136.98;0.52;0.04;2018-11-01;meta_historica
+2025-11;ecommerce;EC-BR;Brasil;BR;127484.00;979;130.22;0.48;0.06;2020-04-01;meta_historica
+2025-12;loja_fisica;LJ-BQ;Barbacena;MG;57002.40;421;135.40;0.52;0.04;2018-11-01;meta_historica
+2025-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;65145.60;476;136.86;0.52;0.04;2018-11-01;meta_historica
+2025-12;ecommerce;EC-BR;Brasil;BR;99876.00;767;130.22;0.48;0.06;2020-04-01;meta_historica
+2026-01;loja_fisica;LJ-BQ;Barbacena;MG;61950.00;458;135.26;0.52;0.04;2018-11-01;meta_historica
+2026-01;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;70800.00;517;136.94;0.52;0.04;2018-11-01;meta_historica
+2026-01;ecommerce;EC-BR;Brasil;BR;109900.00;844;130.21;0.48;0.06;2020-04-01;meta_historica
+2026-02;loja_fisica;LJ-BQ;Barbacena;MG;61950.00;458;135.26;0.52;0.04;2018-11-01;meta_historica
+2026-02;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;70800.00;517;136.94;0.52;0.04;2018-11-01;meta_historica
+2026-02;ecommerce;EC-BR;Brasil;BR;109900.00;844;130.21;0.48;0.06;2020-04-01;meta_historica
+2026-03;loja_fisica;LJ-BQ;Barbacena;MG;56175.00;415;135.36;0.52;0.04;2018-11-01;meta_historica
+2026-03;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;64200.00;469;136.89;0.52;0.04;2018-11-01;meta_historica
+2026-03;ecommerce;EC-BR;Brasil;BR;100228.80;770;130.17;0.48;0.06;2020-04-01;meta_historica
+2026-04;loja_fisica;LJ-BQ;Barbacena;MG;52500.00;388;135.31;0.52;0.04;2018-11-01;meta_historica
+2026-04;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;60000.00;438;136.99;0.52;0.04;2018-11-01;meta_historica
+2026-04;ecommerce;EC-BR;Brasil;BR;94074.40;723;130.12;0.48;0.06;2020-04-01;meta_historica
+2026-05;loja_fisica;LJ-BQ;Barbacena;MG;66150.00;489;135.28;0.52;0.04;2018-11-01;meta_historica
+2026-05;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;75600.00;552;136.96;0.52;0.04;2018-11-01;meta_historica
+2026-05;ecommerce;EC-BR;Brasil;BR;116933.60;898;130.22;0.48;0.06;2020-04-01;meta_historica
+2026-06;loja_fisica;LJ-BQ;Barbacena;MG;55125.00;407;135.44;0.52;0.04;2018-11-01;meta_historica
+2026-06;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;63000.00;460;136.96;0.52;0.04;2018-11-01;meta_historica
+2026-06;ecommerce;EC-BR;Brasil;BR;98470.40;757;130.08;0.48;0.06;2020-04-01;meta_historica
+2026-07;loja_fisica;LJ-BQ;Barbacena;MG;52500.00;388;135.31;0.52;0.04;2018-11-01;meta_historica
+2026-07;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;60000.00;438;136.99;0.52;0.04;2018-11-01;meta_historica
+2026-07;ecommerce;EC-BR;Brasil;BR;94074.40;723;130.12;0.48;0.06;2020-04-01;meta_historica
+2026-08;loja_fisica;LJ-BQ;Barbacena;MG;68250.00;504;135.42;0.52;0.04;2018-11-01;meta_planejada
+2026-08;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;78000.00;569;137.08;0.52;0.04;2018-11-01;meta_planejada
+2026-08;ecommerce;EC-BR;Brasil;BR;120450.40;925;130.22;0.48;0.06;2020-04-01;meta_planejada
+2026-09;loja_fisica;LJ-BQ;Barbacena;MG;58800.00;435;135.17;0.52;0.04;2018-11-01;meta_planejada
+2026-09;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;67200.00;491;136.86;0.52;0.04;2018-11-01;meta_planejada
+2026-09;ecommerce;EC-BR;Brasil;BR;104624.80;804;130.13;0.48;0.06;2020-04-01;meta_planejada
+2026-10;loja_fisica;LJ-BQ;Barbacena;MG;52500.00;388;135.31;0.52;0.04;2018-11-01;meta_planejada
+2026-10;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;60000.00;438;136.99;0.52;0.04;2018-11-01;meta_planejada
+2026-10;ecommerce;EC-BR;Brasil;BR;94074.40;723;130.12;0.48;0.06;2020-04-01;meta_planejada
+2026-11;loja_fisica;LJ-BQ;Barbacena;MG;69300.00;512;135.35;0.52;0.04;2018-11-01;meta_planejada
+2026-11;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;79200.00;578;137.02;0.52;0.04;2018-11-01;meta_planejada
+2026-11;ecommerce;EC-BR;Brasil;BR;122208.80;939;130.15;0.48;0.06;2020-04-01;meta_planejada
+2026-12;loja_fisica;LJ-BQ;Barbacena;MG;60900.00;450;135.33;0.52;0.04;2018-11-01;meta_planejada
+2026-12;loja_fisica;LJ-CL;Conselheiro Lafaiete;MG;69600.00;508;137.01;0.52;0.04;2018-11-01;meta_planejada
+2026-12;ecommerce;EC-BR;Brasil;BR;108141.60;831;130.13;0.48;0.06;2020-04-01;meta_planejada
