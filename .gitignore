@@ -9,3 +9,8 @@ venv/
 .ruff_cache/
 *.log
 desktop.ini
+
+# Dados locais do projeto. A base e ficticia, mas ainda assim nao precisa ir para Git.
+data/raw/
+data/api/*.json
+data/reference/*.csv
