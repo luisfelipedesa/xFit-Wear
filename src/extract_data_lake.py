@@ -6,10 +6,13 @@ from __future__ import annotations
 #
 # TODO: quando o Airflow entrar, revisar se esse arquivo continua como tarefa
 # PythonOperator ou se vira modulo chamado por um script de carga separado.
+# NOTE: agora a carga e parcial por fonte. Se Barbacena falhar, Lafaiete e
+# ecommerce ainda podem seguir, mas o BI precisa mostrar o status da falha.
 
 import csv
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 
@@ -42,6 +45,45 @@ COLUNAS_PRODUTOS = {
     "categoria",
     "preco_lista",
     "custo_padrao",
+}
+
+
+FONTES = {
+    "vendas_barbacena": {
+        "env": "XFIT_VENDAS_BARBACENA_PATH",
+        "tipo": "csv",
+        "grupo": "vendas",
+        "colunas": COLUNAS_VENDAS | {"loja_id"},
+        "campo_data": "data_venda",
+    },
+    "vendas_conselheiro_lafaiete": {
+        "env": "XFIT_VENDAS_LAFAIETE_PATH",
+        "tipo": "csv",
+        "grupo": "vendas",
+        "colunas": COLUNAS_VENDAS | {"loja_id"},
+        "campo_data": "data_venda",
+    },
+    "vendas_ecommerce": {
+        "env": "XFIT_ECOMMERCE_JSON_PATH",
+        "tipo": "json_api",
+        "grupo": "vendas",
+        "colunas": COLUNAS_VENDAS | {"pedido_online_id"},
+        "campo_data": "data_venda",
+    },
+    "metas_mensais": {
+        "env": "XFIT_METAS_PATH",
+        "tipo": "csv",
+        "grupo": "cadastros",
+        "colunas": COLUNAS_METAS,
+        "campo_data": "ano_mes",
+    },
+    "produtos": {
+        "env": "XFIT_PRODUTOS_PATH",
+        "tipo": "csv",
+        "grupo": "cadastros",
+        "colunas": COLUNAS_PRODUTOS,
+        "campo_data": None,
+    },
 }
 
 
@@ -120,70 +162,116 @@ def validar_colunas(nome_fonte: str, linhas: list[dict], colunas_obrigatorias: s
         raise ValueError(f"Fonte {nome_fonte} sem colunas obrigatorias: {sorted(faltando)}")
 
 
-def resumir_vendas(nome_fonte: str, linhas: list[dict]) -> dict:
+def resumir_periodo(linhas: list[dict], campo_data: str | None) -> tuple[str | None, str | None]:
+    if not campo_data:
+        return None, None
+
     # NOTE: datas estao em ISO yyyy-mm-dd, entao min/max por texto funciona.
     # Se mudar o formato da fonte, essa economia vira bug e precisa virar date().
-    datas = [linha["data_venda"] for linha in linhas if linha.get("data_venda")]
+    datas = [linha[campo_data] for linha in linhas if linha.get(campo_data)]
+    if not datas:
+        return None, None
 
+    return min(datas), max(datas)
+
+
+def status_fonte(
+    nome_fonte: str,
+    status: str,
+    linhas_lidas: int = 0,
+    data_minima: str | None = None,
+    data_maxima: str | None = None,
+    mensagem: str = "OK",
+) -> dict:
     return {
         "fonte": nome_fonte,
-        "linhas": len(linhas),
-        "data_inicial": min(datas),
-        "data_final": max(datas),
+        "status": status,
+        "linhas_lidas": linhas_lidas,
+        "data_minima": data_minima,
+        "data_maxima": data_maxima,
+        "mensagem": mensagem,
+        "data_execucao": datetime.now().isoformat(timespec="seconds"),
     }
 
 
-def resumir_cadastro(nome_fonte: str, linhas: list[dict]) -> dict:
-    return {"fonte": nome_fonte, "linhas": len(linhas)}
+def mensagem_segura(erro: Exception) -> str:
+    # NOTE: erro com caminho absoluto ajuda no debug local, mas pode vazar a
+    # estrutura da maquina se isso aparecer no painel de status do BI.
+    mensagem = str(erro)
+    return mensagem.replace(str(BASE_DIR.resolve()), "<projeto>")
+
+
+def ler_fonte(nome_fonte: str, config: dict) -> list[dict]:
+    caminho = caminho_env(config["env"])
+
+    if config["tipo"] == "csv":
+        return ler_csv(caminho)
+
+    if config["tipo"] == "json_api":
+        payload = ler_json(caminho)
+        return payload.get("records", [])
+
+    raise ValueError(f"Tipo de fonte nao suportado: {config['tipo']}")
+
+
+def tentar_carregar_fonte(nome_fonte: str, config: dict) -> tuple[str, list[dict], dict]:
+    try:
+        linhas = ler_fonte(nome_fonte, config)
+        validar_colunas(nome_fonte, linhas, config["colunas"])
+        data_minima, data_maxima = resumir_periodo(linhas, config["campo_data"])
+
+        return (
+            nome_fonte,
+            linhas,
+            status_fonte(
+                nome_fonte,
+                "sucesso",
+                linhas_lidas=len(linhas),
+                data_minima=data_minima,
+                data_maxima=data_maxima,
+            ),
+        )
+    except Exception as erro:
+        # FIXME: ainda nao temos tabela de auditoria. Quando tiver, talvez seja
+        # util gravar erro_tecnico separado de mensagem_usuario.
+        return (
+            nome_fonte,
+            [],
+            status_fonte(nome_fonte, "falha", mensagem=mensagem_segura(erro)),
+        )
 
 
 def carregar_data_lake() -> dict:
-    # Ordem meio explicita mesmo: fica mais facil para revisar no comeco do projeto.
-    # Depois, se crescer demais, a gente compacta em um dicionario de fontes.
     carregar_env()
 
-    vendas_barbacena = ler_csv(caminho_env("XFIT_VENDAS_BARBACENA_PATH"))
-    vendas_lafaiete = ler_csv(caminho_env("XFIT_VENDAS_LAFAIETE_PATH"))
-    metas = ler_csv(caminho_env("XFIT_METAS_PATH"))
-    produtos = ler_csv(caminho_env("XFIT_PRODUTOS_PATH"))
-
-    payload_ecommerce = ler_json(caminho_env("XFIT_ECOMMERCE_JSON_PATH"))
-    vendas_ecommerce = payload_ecommerce.get("records", [])
-
-    # Nao deixar carga "meio certa" passar. Se o contrato minimo quebrou,
-    # melhor falhar aqui do que descobrir pelo Power BI com numero estranho.
-    validar_colunas("vendas_barbacena", vendas_barbacena, COLUNAS_VENDAS | {"loja_id"})
-    validar_colunas("vendas_conselheiro_lafaiete", vendas_lafaiete, COLUNAS_VENDAS | {"loja_id"})
-    validar_colunas("vendas_ecommerce", vendas_ecommerce, COLUNAS_VENDAS | {"pedido_online_id"})
-    validar_colunas("metas_mensais", metas, COLUNAS_METAS)
-    validar_colunas("produtos", produtos, COLUNAS_PRODUTOS)
-
-    # NOTE: por enquanto so resumimos. A camada staging vem no proximo passo.
-    return {
-        "vendas": [
-            resumir_vendas("vendas_barbacena", vendas_barbacena),
-            resumir_vendas("vendas_conselheiro_lafaiete", vendas_lafaiete),
-            resumir_vendas("vendas_ecommerce", vendas_ecommerce),
-        ],
-        "cadastros": [
-            resumir_cadastro("metas_mensais", metas),
-            resumir_cadastro("produtos", produtos),
-        ],
+    resultado = {
+        "dados": {},
+        "status_cargas": [],
     }
 
+    for nome_fonte, config in FONTES.items():
+        nome, linhas, status = tentar_carregar_fonte(nome_fonte, config)
+        resultado["status_cargas"].append(status)
 
-def imprimir_resumo(resumo: dict) -> None:
+        if status["status"] == "sucesso":
+            resultado["dados"][nome] = linhas
+
+    return resultado
+
+
+def imprimir_resumo(resultado: dict) -> None:
     print("\nResumo de carga do data lake")
     print("-" * 32)
 
-    for item in resumo["vendas"]:
-        print(
-            f"{item['fonte']}: {item['linhas']} linhas "
-            f"({item['data_inicial']} ate {item['data_final']})"
-        )
+    for item in resultado["status_cargas"]:
+        periodo = ""
+        if item["data_minima"] and item["data_maxima"]:
+            periodo = f" ({item['data_minima']} ate {item['data_maxima']})"
 
-    for item in resumo["cadastros"]:
-        print(f"{item['fonte']}: {item['linhas']} linhas")
+        print(
+            f"{item['fonte']}: {item['status']} | "
+            f"{item['linhas_lidas']} linhas{periodo} | {item['mensagem']}"
+        )
 
 
 if __name__ == "__main__":
