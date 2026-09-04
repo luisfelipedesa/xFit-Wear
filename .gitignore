@@ -14,3 +14,6 @@ desktop.ini
 data/raw/
 data/api/*.json
 data/reference/*.csv
+data/processed/backups/
+data/processed/logs/
+data/processed/manifests/

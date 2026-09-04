@@ -37,6 +37,22 @@ Este pacote contem fontes simuladas para um projeto de BI em Python de uma loja 
 - A distribuicao do ecommerce privilegia Sudeste e Minas Gerais, mas inclui outras regioes para permitir analises nacionais.
 - Os dados sao ficticios e servem para portfolio; nao representam vendas reais.
 
+Mesmo assim, o projeto deve ser tratado como se operasse dados reais de cliente,
+porque a construcao local prepara um pipeline para evoluir ate deploy e operacao
+em producao. Backups, logs, validacoes e mensagens seguras fazem parte do
+criterio de aceite, nao sao acabamento opcional.
+
+## Operacao local com postura de producao
+
+Antes de promover dados para novas camadas analiticas, rode:
+
+```bash
+python src/data_lake_audit.py --backup
+python src/validate_staging.py
+```
+
+A politica operacional esta documentada em `docs/operacao_producao.md`.
+
 ## Como consumir a API online
 
 Execute:

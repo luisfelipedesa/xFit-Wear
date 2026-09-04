@@ -1,0 +1,43 @@
+{
+  "project_id": "xfit_wear",
+  "project_name": "xFit Wear",
+  "environment": "local",
+  "data_sources": [
+    {
+      "name": "vendas_barbacena",
+      "path": "data/raw/lojas_fisicas/vendas_barbacena.csv",
+      "type": "csv",
+      "required": true
+    },
+    {
+      "name": "vendas_conselheiro_lafaiete",
+      "path": "data/raw/lojas_fisicas/vendas_conselheiro_lafaiete.csv",
+      "type": "csv",
+      "required": true
+    },
+    {
+      "name": "vendas_ecommerce",
+      "path": "data/api/vendas_online_api.json",
+      "type": "json_records",
+      "required": true
+    },
+    {
+      "name": "metas_mensais",
+      "path": "data/reference/metas_mensais.csv",
+      "type": "csv",
+      "required": true
+    },
+    {
+      "name": "produtos",
+      "path": "data/reference/produtos.csv",
+      "type": "csv",
+      "required": true
+    },
+    {
+      "name": "dicionario_dados",
+      "path": "data/reference/dicionario_dados.md",
+      "type": "markdown",
+      "required": true
+    }
+  ]
+}

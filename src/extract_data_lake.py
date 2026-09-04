@@ -100,7 +100,7 @@ def carregar_env(caminho: Path = ENV_FILE) -> None:
 
         if "=" not in linha:
             # TODO: trocar por log estruturado quando o Airflow entrar.
-            print(f"Linha ignorada no .env: {linha}")
+            print("Linha ignorada no .env sem formato KEY=VALUE")
             continue
 
         chave, valor = linha.split("=", 1)

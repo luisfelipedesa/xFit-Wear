@@ -4,6 +4,7 @@ import csv
 import json
 import math
 import random
+import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -437,6 +438,18 @@ from urllib.parse import parse_qs, urlparse
 DATA_FILE = Path(__file__).with_name("vendas_online_api.json")
 
 
+def parse_positive_int(params: dict, nome: str, padrao: int, limite: int | None = None) -> int:
+    try:
+        valor = int(params.get(nome, [str(padrao)])[0])
+    except ValueError as erro:
+        raise ValueError(f"{nome} deve ser inteiro") from erro
+
+    valor = max(1, valor)
+    if limite is not None:
+        valor = min(limite, valor)
+    return valor
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send_json(self, payload: dict, status: int = 200) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -458,8 +471,13 @@ class Handler(BaseHTTPRequestHandler):
 
         payload = json.loads(DATA_FILE.read_text(encoding="utf-8"))
         params = parse_qs(parsed.query)
-        page = max(1, int(params.get("page", ["1"])[0]))
-        page_size = min(500, max(1, int(params.get("page_size", ["100"])[0])))
+        try:
+            page = parse_positive_int(params, "page", 1)
+            page_size = parse_positive_int(params, "page_size", 100, limite=500)
+        except ValueError as erro:
+            self._send_json({"error": "invalid_query_param", "message": str(erro)}, 400)
+            return
+
         records = payload["records"]
         start = (page - 1) * page_size
         end = start + page_size
@@ -483,7 +501,30 @@ if __name__ == "__main__":
     )
 
 
+def arquivos_gerados() -> list[Path]:
+    return [
+        RAW / "vendas_barbacena.csv",
+        RAW / "vendas_conselheiro_lafaiete.csv",
+        API / "vendas_online_api.json",
+        REF / "produtos.csv",
+        REF / "metas_mensais.csv",
+        REF / "dicionario_dados.md",
+        API / "mock_api_server.py",
+    ]
+
+
+def validar_sobrescrita_autorizada() -> None:
+    existentes = [path for path in arquivos_gerados() if path.exists()]
+    if existentes and "--force" not in sys.argv:
+        print("Geracao bloqueada: arquivos de fonte ja existem.")
+        print("Rode `python src/data_lake_audit.py --backup` antes de sobrescrever.")
+        print("Depois use `python gerar_fontes_xfit.py --force` se a sobrescrita for intencional.")
+        raise SystemExit(2)
+
+
 def main() -> None:
+    validar_sobrescrita_autorizada()
+
     barbacena = {"loja_id": "LJ-BQ", "loja_nome": "xFit Wear Barbacena", "cidade": "Barbacena"}
     conselheiro = {"loja_id": "LJ-CL", "loja_nome": "xFit Wear Conselheiro Lafaiete", "cidade": "Conselheiro Lafaiete"}
 
