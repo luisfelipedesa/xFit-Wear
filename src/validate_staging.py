@@ -10,6 +10,7 @@ from __future__ import annotations
 # para quando a camada DW nascer.
 # NOTE: mensagens deste relatorio nao mostram caminhos locais nem conteudo do .env.
 
+import argparse
 from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
@@ -452,8 +453,29 @@ def self_test() -> None:
     print("self-test: OK")
 
 
-if __name__ == "__main__":
-    if "--self-test" in sys.argv:
+# ## Resultado da validacao para o processo que chamou o comando
+def executar_validacao_staging_cli() -> int:
+    argumentos = argparse.ArgumentParser(description="Valida a staging antes da promocao para DW.")
+    argumentos.add_argument("--self-test", action="store_true", help="testa as regras de validacao")
+    opcoes = argumentos.parse_args()
+
+    if opcoes.self_test:
         self_test()
-    else:
-        imprimir_relatorio(validar_staging())
+        return 0
+
+    try:
+        relatorio_staging = validar_staging()
+    except (OSError, ValueError, TypeError, KeyError, ArithmeticError) as erro:
+        # NOTE: sem relatorio confiavel, devolver falha tecnica. Nao imprimir
+        # a excecao completa, pois ela pode conter valores da fonte ou caminhos.
+        print(f"Validacao da staging interrompida ({type(erro).__name__}); confira a configuracao e as fontes locais.", file=sys.stderr)
+        return 2
+
+    imprimir_relatorio(relatorio_staging)
+    # NOTE: exibir 'reprovado' nao basta para um agendador interromper a carga.
+    # Alertas continuam seguindo a regra existente de pode_promover_dw.
+    return 0 if relatorio_staging["pode_promover_dw"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(executar_validacao_staging_cli())

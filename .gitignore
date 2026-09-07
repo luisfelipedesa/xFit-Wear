@@ -17,3 +17,9 @@ data/reference/*.csv
 data/processed/backups/
 data/processed/logs/
 data/processed/manifests/
+# DW local: nenhuma tabela, exportacao ou arquivo de dados deve ser versionado.
+data/processed/dw/
+# Registro operacional mantido somente no ambiente local.
+/docs/operacao_producao.md
+# Instrucoes de continuidade locais, sem registro operacional no GitHub.
+/AGENTS.md

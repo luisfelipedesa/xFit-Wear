@@ -46,10 +46,17 @@ criterio de aceite, nao sao acabamento opcional.
 
 Antes de promover dados para novas camadas analiticas, rode:
 
-```bash
+```powershell
 python src/data_lake_audit.py --backup
+if ($LASTEXITCODE -ne 0) { throw "Auditoria nao aprovada; interromper a carga." }
 python src/validate_staging.py
+if ($LASTEXITCODE -ne 0) { throw "Staging nao aprovada; nao promover para DW." }
 ```
+
+Os dois comandos retornam `0` quando aprovados, `1` quando o relatorio registra
+reprovacao e `2` para argumentos invalidos ou falhas tecnicas tratadas. No
+PowerShell, um codigo diferente de zero nao interrompe sozinho os comandos
+seguintes; por isso o exemplo confere `$LASTEXITCODE` apos cada etapa.
 
 A politica operacional esta documentada em `docs/operacao_producao.md`.
 
