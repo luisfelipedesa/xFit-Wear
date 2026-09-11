@@ -6,8 +6,8 @@ from __future__ import annotations
 # produto vendido sem cadastro, unidade sem meta, valor incoerente etc.
 #
 # TODO: quando existir banco, gravar este resultado em etl.validacoes_staging.
-# FIXME: por enquanto os exemplos sao pequenos e assertivos; teste formal fica
-# para quando a camada DW nascer.
+# NOTE: os self-tests cobrem regras financeiras; testes de completude ficam
+# em tests/test_completude_staging.py, sem depender das fontes locais.
 # NOTE: mensagens deste relatorio nao mostram caminhos locais nem conteudo do .env.
 
 import argparse
@@ -18,16 +18,33 @@ from typing import Iterable
 import sys
 
 try:
-    from staging_data import gerar_staging
+    from staging_data import gerar_staging, FONTES_VENDAS, FONTE_PRODUTOS, FONTE_METAS
 except ModuleNotFoundError:
     # FIXME: manter compatibilidade enquanto src ainda nao e pacote instalavel.
-    from src.staging_data import gerar_staging
+    from src.staging_data import gerar_staging, FONTES_VENDAS, FONTE_PRODUTOS, FONTE_METAS
 
 
 LIMITE_EXEMPLOS = 5
 TOLERANCIA_CENTAVOS = Decimal("0.02")
 MATERIALIDADE_ABSOLUTA_GRUPO = Decimal("1.00")
 MATERIALIDADE_RELATIVA_RECEITA = Decimal("0.0001")
+FONTES_DA_CARGA_HISTORICA = set(FONTES_VENDAS) | {FONTE_PRODUTOS, FONTE_METAS}
+TABELAS_OBRIGATORIAS_STAGING = {
+    "stg_vendas": FONTES_VENDAS,
+    "stg_produtos": [FONTE_PRODUTOS],
+    "stg_metas": [FONTE_METAS],
+}
+CAMPOS_IDENTIDADE_VENDA = (
+    "fonte",
+    "id_venda",
+    "data_venda",
+    "hora_venda",
+    "cliente_id",
+    "canal",
+    "unidade_id",
+    "status_pedido",
+    "produto_id",
+)
 
 
 def ano_mes(data_iso: str) -> str:
@@ -59,23 +76,212 @@ def exemplo(valores: Iterable) -> list:
     return sorted(set(valores))[:LIMITE_EXEMPLOS]
 
 
-def validar_status_pipeline(resultado: dict) -> dict:
-    check = novo_check("status_pipeline")
+def contar_linhas_reais_da_staging_historica(conferencia: dict, tabelas_staging: dict) -> tuple[dict, Counter]:
+    linhas_por_fonte = Counter()
+    linhas_por_tabela = dict.fromkeys(TABELAS_OBRIGATORIAS_STAGING, 0)
 
-    falhas_carga = [item for item in resultado["status_cargas"] if item["status"] != "sucesso"]
-    falhas_staging = [item for item in resultado["status_staging"] if item["status"] != "sucesso"]
+    # NOTE: todas as fontes sao obrigatorias nesta carga historica completa.
+    # Carga incremental sem movimento exigira outro contrato; nao presumir isso.
+    for nome_tabela, fontes_da_tabela in TABELAS_OBRIGATORIAS_STAGING.items():
+        linhas_staging = tabelas_staging.get(nome_tabela)
+        if not isinstance(linhas_staging, list) or not linhas_staging:
+            adicionar_erro(conferencia, f"{nome_tabela}: tabela ausente, vazia ou fora do formato esperado.")
+            continue
+
+        linhas_por_tabela[nome_tabela] = len(linhas_staging)
+        if any(not isinstance(linha, dict) for linha in linhas_staging):
+            adicionar_erro(conferencia, f"{nome_tabela}: registro fora do formato esperado.")
+            continue
+
+        if nome_tabela == "stg_vendas":
+            vendas_sem_fonte_reconhecida = 0
+            for venda in linhas_staging:
+                fonte_venda = venda.get("fonte")
+                if not isinstance(fonte_venda, str) or fonte_venda not in fontes_da_tabela:
+                    vendas_sem_fonte_reconhecida += 1
+                else:
+                    linhas_por_fonte[fonte_venda] += 1
+            if vendas_sem_fonte_reconhecida:
+                adicionar_erro(
+                    conferencia,
+                    f"stg_vendas: {vendas_sem_fonte_reconhecida} registros sem fonte reconhecida.",
+                )
+        else:
+            linhas_por_fonte[fontes_da_tabela[0]] = len(linhas_staging)
+
+    return linhas_por_tabela, linhas_por_fonte
+
+
+def mapear_status_obrigatorio_por_fonte(
+    conferencia: dict,
+    resultado: dict,
+    nome_lista_status: str,
+    campos_de_volume: tuple[str, ...],
+) -> dict:
+    status_por_fonte = {}
+    status_da_etapa = resultado.get(nome_lista_status)
+    if not isinstance(status_da_etapa, list):
+        adicionar_erro(conferencia, f"{nome_lista_status}: lista de status ausente ou invalida.")
+        status_da_etapa = []
+
+    for item_status in status_da_etapa:
+        fonte_status = item_status.get("fonte") if isinstance(item_status, dict) else None
+        if not isinstance(fonte_status, str) or fonte_status not in FONTES_DA_CARGA_HISTORICA:
+            adicionar_erro(conferencia, f"{nome_lista_status}: status sem fonte reconhecida.")
+            continue
+        if fonte_status in status_por_fonte:
+            adicionar_erro(conferencia, f"{nome_lista_status}: mais de um status para {fonte_status}.")
+            continue
+
+        status_por_fonte[fonte_status] = item_status
+        if item_status.get("status") != "sucesso":
+            adicionar_erro(conferencia, f"{nome_lista_status}: {fonte_status} nao concluiu com sucesso.")
+
+        for campo_volume in campos_de_volume:
+            volume_declarado = item_status.get(campo_volume)
+            if type(volume_declarado) is not int or volume_declarado <= 0:
+                adicionar_erro(
+                    conferencia,
+                    f"{nome_lista_status}: {fonte_status} precisa de {campo_volume} inteiro e positivo.",
+                )
+
+    for fonte_esperada in sorted(FONTES_DA_CARGA_HISTORICA - status_por_fonte.keys()):
+        adicionar_erro(conferencia, f"{nome_lista_status}: status obrigatorio ausente para {fonte_esperada}.")
+
+    return status_por_fonte
+
+
+def conferir_volume_por_fonte_da_carga_historica(
+    conferencia: dict,
+    status_cargas_por_fonte: dict,
+    status_staging_por_fonte: dict,
+    linhas_por_fonte: Counter,
+) -> None:
+    # NOTE: conferir por fonte, nao apenas pelo total de stg_vendas. Uma loja
+    # com linhas a mais nao pode compensar registros perdidos de outra loja.
+    for fonte_esperada in sorted(FONTES_DA_CARGA_HISTORICA):
+        status_extracao = status_cargas_por_fonte.get(fonte_esperada, {})
+        status_staging = status_staging_por_fonte.get(fonte_esperada, {})
+        volumes_da_fonte = [
+            status_extracao.get("linhas_lidas"),
+            status_staging.get("linhas_entrada"),
+            status_staging.get("linhas_saida"),
+            linhas_por_fonte[fonte_esperada],
+        ]
+        if any(type(total) is not int or total <= 0 for total in volumes_da_fonte):
+            adicionar_erro(conferencia, f"{fonte_esperada}: volume nao comprovado nas etapas da carga.")
+        elif len(set(volumes_da_fonte)) != 1:
+            adicionar_erro(
+                conferencia,
+                f"{fonte_esperada}: contagens divergem entre extracao, staging e tabela.",
+            )
+
+
+# ## Completude da carga historica antes das regras de negocio
+def conferir_completude_staging(resultado: dict) -> dict:
+    conferencia = novo_check("completude_staging")
+    linhas_por_fonte = Counter()
+    linhas_por_tabela = dict.fromkeys(TABELAS_OBRIGATORIAS_STAGING, 0)
+    conferencia["metricas"]["linhas_por_tabela"] = linhas_por_tabela
+    tabelas_staging = resultado.get("staging")
+    if not isinstance(tabelas_staging, dict):
+        adicionar_erro(conferencia, "Bloco staging ausente ou fora do formato esperado.")
+        tabelas_staging = {}
+
+    linhas_por_tabela, linhas_por_fonte = contar_linhas_reais_da_staging_historica(conferencia, tabelas_staging)
+    conferencia["metricas"]["linhas_por_tabela"] = linhas_por_tabela
+
+    status_cargas_por_fonte = mapear_status_obrigatorio_por_fonte(
+        conferencia,
+        resultado,
+        "status_cargas",
+        ("linhas_lidas",),
+    )
+    status_staging_por_fonte = mapear_status_obrigatorio_por_fonte(
+        conferencia,
+        resultado,
+        "status_staging",
+        ("linhas_entrada", "linhas_saida"),
+    )
+    conferir_volume_por_fonte_da_carga_historica(
+        conferencia,
+        status_cargas_por_fonte,
+        status_staging_por_fonte,
+        linhas_por_fonte,
+    )
+
+    conferencia["metricas"]["linhas_por_fonte"] = dict(linhas_por_fonte)
+    # TODO: reconciliar com o snapshot auditado quando a carga tiver identidade
+    # compartilhada. Contagens consistentes nao provam a identidade dos itens.
+    return conferencia
+
+
+def validar_identidade_itens_vendidos(vendas: list[dict]) -> dict:
+    check = novo_check("identidade_itens_vendidos")
+    cabecalho_por_pedido = {}
+    produtos_por_pedido = defaultdict(set)
+    itens_por_pedido_produto = Counter()
+    vendas_sem_identidade = 0
+    pedidos_com_cabecalho_conflitante = set()
+
+    for venda in vendas:
+        if any(venda.get(campo) in (None, "") for campo in CAMPOS_IDENTIDADE_VENDA):
+            vendas_sem_identidade += 1
+            continue
+
+        chave_pedido = (venda["fonte"], venda["id_venda"])
+        cabecalho_pedido = (
+            venda["fonte"],
+            venda["id_venda"],
+            venda["data_venda"],
+            venda["hora_venda"],
+            venda["cliente_id"],
+            venda["canal"],
+            venda["unidade_id"],
+            venda["status_pedido"],
+        )
+        if chave_pedido in cabecalho_por_pedido and cabecalho_por_pedido[chave_pedido] != cabecalho_pedido:
+            pedidos_com_cabecalho_conflitante.add(chave_pedido)
+        else:
+            cabecalho_por_pedido[chave_pedido] = cabecalho_pedido
+
+        produtos_por_pedido[chave_pedido].add(venda["produto_id"])
+        # NOTE: a staging ainda nao preserva item_id, tamanho ou cor. Por isso
+        # fonte+pedido+produto repetido fica ambiguo e deve ser resolvido antes
+        # de gerar venda_item_id no DW.
+        itens_por_pedido_produto[(venda["fonte"], venda["id_venda"], venda["produto_id"])] += 1
+
+    itens_ambiguos = [
+        chave_item
+        for chave_item, total in itens_por_pedido_produto.items()
+        if total > 1
+    ]
+    pedidos_multiplos_itens = [
+        chave_pedido
+        for chave_pedido, produtos in produtos_por_pedido.items()
+        if len(produtos) > 1
+    ]
 
     check["metricas"] = {
-        "fontes_com_falha_carga": len(falhas_carga),
-        "fontes_com_falha_staging": len(falhas_staging),
+        "linhas_vendas_avaliadas": len(vendas),
+        "pedidos_distintos": len(cabecalho_por_pedido),
+        "pedidos_com_multiplos_produtos": len(pedidos_multiplos_itens),
+        "itens_sem_chave_confiavel": len(itens_ambiguos),
+        "pedidos_com_cabecalho_conflitante": len(pedidos_com_cabecalho_conflitante),
+        "vendas_sem_campos_identidade": vendas_sem_identidade,
     }
 
-    for item in falhas_carga:
-        adicionar_erro(check, f"carga {item['fonte']} ficou como {item['status']}: {item['mensagem']}")
+    if vendas_sem_identidade:
+        adicionar_erro(check, "vendas sem campos obrigatorios para identificar pedido e item.")
 
-    for item in falhas_staging:
-        adicionar_erro(check, f"staging {item['fonte']} ficou como {item['status']}: {item['mensagem']}")
+    if pedidos_com_cabecalho_conflitante:
+        adicionar_erro(check, "id_venda reaproveitado com cabecalho de pedido divergente.")
 
+    if itens_ambiguos:
+        adicionar_erro(check, "fonte/id_venda/produto_id repetido; nao ha item_id para diferenciar as linhas.")
+
+    # TODO: quando a fonte trouxer item_id ou numero_linha_pedido, esta regra
+    # deve migrar para essa chave natural e liberar repeticoes hoje ambiguas.
     return check
 
 
@@ -331,20 +537,23 @@ def validar_staging(resultado: dict | None = None) -> dict:
     if resultado is None:
         resultado = gerar_staging()
 
-    staging = resultado["staging"]
-    vendas = staging["stg_vendas"]
-    produtos = staging["stg_produtos"]
-    metas = staging["stg_metas"]
-
-    validacoes = [
-        validar_status_pipeline(resultado),
-        validar_produtos(vendas, produtos),
-        validar_unidades_e_metas(vendas, metas),
-        validar_cobertura_mensal(vendas, metas),
-        validar_valores(vendas, produtos, metas),
-        validar_arredondamento_agregado(vendas),
-        validar_status_e_datas(vendas, metas),
-    ]
+    completude = conferir_completude_staging(resultado)
+    validacoes = [completude]
+    if completude["status"] == "ok":
+        staging = resultado["staging"]
+        vendas = staging["stg_vendas"]
+        produtos = staging["stg_produtos"]
+        metas = staging["stg_metas"]
+        validacoes.extend([
+            validar_identidade_itens_vendidos(vendas),
+            validar_produtos(vendas, produtos),
+            validar_unidades_e_metas(vendas, metas),
+            validar_cobertura_mensal(vendas, metas),
+            validar_valores(vendas, produtos, metas),
+            validar_arredondamento_agregado(vendas),
+            validar_status_e_datas(vendas, metas),
+        ])
+    # Sem estrutura/volume completo, nao emitir pareceres de negocio parciais.
     erros = sum(len(check["erros"]) for check in validacoes)
     alertas = sum(len(check["alertas"]) for check in validacoes)
 
@@ -353,11 +562,7 @@ def validar_staging(resultado: dict | None = None) -> dict:
         "pode_promover_dw": erros == 0,
         "erros": erros,
         "alertas": alertas,
-        "linhas": {
-            "stg_vendas": len(vendas),
-            "stg_produtos": len(produtos),
-            "stg_metas": len(metas),
-        },
+        "linhas": completude["metricas"]["linhas_por_tabela"],
         "validacoes": validacoes,
     }
 
@@ -399,9 +604,11 @@ def self_test() -> None:
         "preco_lista": Decimal("30.00"),
     }
     venda = {
-        "fonte": "teste",
+        "fonte": FONTES_VENDAS[0],
         "id_venda": "V1",
         "data_venda": "2026-01-10",
+        "hora_venda": "10:00:00",
+        "cliente_id": "CLI-00001",
         "produto_id": "P1",
         "quantidade": 2,
         "valor_bruto": Decimal("60.00"),
@@ -424,9 +631,20 @@ def self_test() -> None:
         "meta_taxa_devolucao_pct": Decimal("2.00"),
     }
     resultado = {
-        "staging": {"stg_vendas": [venda], "stg_produtos": [produto], "stg_metas": [meta]},
-        "status_cargas": [{"fonte": "teste", "status": "sucesso", "mensagem": "OK"}],
-        "status_staging": [{"fonte": "teste", "status": "sucesso", "mensagem": "OK"}],
+        "staging": {
+            "stg_vendas": [dict(venda, fonte=fonte, id_venda=f"V{indice}")
+                           for indice, fonte in enumerate(FONTES_VENDAS)],
+            "stg_produtos": [produto],
+            "stg_metas": [meta],
+        },
+        "status_cargas": [
+            {"fonte": fonte, "status": "sucesso", "linhas_lidas": 1}
+            for fonte in [*FONTES_VENDAS, FONTE_PRODUTOS, FONTE_METAS]
+        ],
+        "status_staging": [
+            {"fonte": fonte, "status": "sucesso", "linhas_entrada": 1, "linhas_saida": 1}
+            for fonte in [*FONTES_VENDAS, FONTE_PRODUTOS, FONTE_METAS]
+        ],
     }
 
     relatorio = validar_staging(resultado)
@@ -444,7 +662,9 @@ def self_test() -> None:
         venda_com_centavo["produto_id"] = "P1"
         venda_com_centavo["margem_bruta"] = Decimal("40.01")
         vendas.append(venda_com_centavo)
-    resultado["staging"]["stg_vendas"] = vendas
+    resultado["staging"]["stg_vendas"] = vendas + resultado["staging"]["stg_vendas"][1:]
+    resultado["status_cargas"][0]["linhas_lidas"] = 200
+    resultado["status_staging"][0].update(linhas_entrada=200, linhas_saida=200)
     resultado["staging"]["stg_produtos"] = [produto]
     resultado["staging"]["stg_metas"] = [meta]
     relatorio = validar_staging(resultado)

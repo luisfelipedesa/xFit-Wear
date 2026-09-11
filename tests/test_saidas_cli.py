@@ -111,6 +111,18 @@ class SaidaDosComandosPipelineTest(unittest.TestCase):
                 self.assertNotIn("Traceback", saida)
                 self.assertNotIn(str(self.projeto_teste), saida)
 
+    def test_staging_sem_registros_reprova_com_codigo_um(self) -> None:
+        # Arquivos existem, mas nao ha uma carga historica a promover.
+        for fonte_csv in self.projeto_teste.glob("*.csv"):
+            cabecalho = fonte_csv.read_text(encoding="utf-8-sig").splitlines()[0]
+            fonte_csv.write_text(cabecalho + "\n", encoding="utf-8-sig")
+        (self.projeto_teste / "vendas_online.json").write_text('{"records": []}', encoding="utf-8")
+        processo = self.executar_comando_pipeline("validate_staging.py")
+        self.assertEqual(processo.returncode, 1, processo.stdout + processo.stderr)
+        self.assertIn("[erro] completude_staging", processo.stdout)
+        self.assertIn("stg_vendas=0, stg_produtos=0, stg_metas=0", processo.stdout)
+        self.assertNotIn("Traceback", processo.stderr)
+
     def test_argumento_desconhecido_retorna_dois(self) -> None:
         for script in ["data_lake_audit.py", "validate_staging.py"]:
             with self.subTest(script=script):

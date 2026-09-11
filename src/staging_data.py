@@ -79,16 +79,33 @@ def para_hora(valor: str) -> str:
 
 def para_decimal(valor: Any, campo: str) -> Decimal:
     try:
-        return Decimal(str(valor))
+        numero = Decimal(str(valor))
     except (InvalidOperation, ValueError) as erro:
-        raise ValueError(f"{campo} invalido: {valor}") from erro
+        raise ValueError(f"{campo} invalido") from erro
+
+    if not numero.is_finite():
+        # NOTE: Decimal aceita NaN/Infinity, mas isso nao e valor de venda/meta.
+        # Se passar daqui, as somas do DW podem ficar silenciosamente quebradas.
+        raise ValueError(f"{campo} precisa ser finito")
+
+    return numero
 
 
 def para_inteiro(valor: Any, campo: str) -> int:
+    if isinstance(valor, bool):
+        raise ValueError(f"{campo} precisa ser inteiro")
+
     try:
-        return int(valor)
-    except (TypeError, ValueError) as erro:
-        raise ValueError(f"{campo} invalido: {valor}") from erro
+        numero = Decimal(str(valor))
+    except (InvalidOperation, ValueError) as erro:
+        raise ValueError(f"{campo} invalido") from erro
+
+    if not numero.is_finite() or numero != numero.to_integral_value():
+        # FIXME: se alguma fonte futura mandar "1,0" por formato regional, a
+        # normalizacao deve acontecer antes desta funcao, com contrato claro.
+        raise ValueError(f"{campo} precisa ser inteiro")
+
+    return int(numero)
 
 
 def validar_linha_venda(linha: dict) -> None:

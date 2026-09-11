@@ -11,6 +11,7 @@ venv/
 desktop.ini
 
 # Dados locais do projeto. A base e ficticia, mas ainda assim nao precisa ir para Git.
+/README_FONTES.md
 data/raw/
 data/api/*.json
 data/reference/*.csv
