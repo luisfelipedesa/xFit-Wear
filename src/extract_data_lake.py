@@ -15,6 +15,24 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from source_contract import (
+        carregar_contrato_fontes,
+        levantar_assinatura_fonte,
+        listar_fontes_de_dados,
+        localizar_arquivo_fonte,
+        caminho_pertence_ao_projeto,
+    )
+except ModuleNotFoundError:
+    # FIXME: manter compatibilidade enquanto src ainda nao e pacote instalavel.
+    from src.source_contract import (
+        carregar_contrato_fontes,
+        levantar_assinatura_fonte,
+        listar_fontes_de_dados,
+        localizar_arquivo_fonte,
+        caminho_pertence_ao_projeto,
+    )
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = BASE_DIR / ".env"
@@ -48,38 +66,33 @@ COLUNAS_PRODUTOS = {
 }
 
 
-FONTES = {
+REGRAS_EXTRACAO_POR_FONTE = {
     "vendas_barbacena": {
         "env": "XFIT_VENDAS_BARBACENA_PATH",
-        "tipo": "csv",
         "grupo": "vendas",
         "colunas": COLUNAS_VENDAS | {"loja_id"},
         "campo_data": "data_venda",
     },
     "vendas_conselheiro_lafaiete": {
         "env": "XFIT_VENDAS_LAFAIETE_PATH",
-        "tipo": "csv",
         "grupo": "vendas",
         "colunas": COLUNAS_VENDAS | {"loja_id"},
         "campo_data": "data_venda",
     },
     "vendas_ecommerce": {
         "env": "XFIT_ECOMMERCE_JSON_PATH",
-        "tipo": "json_api",
         "grupo": "vendas",
         "colunas": COLUNAS_VENDAS | {"pedido_online_id"},
         "campo_data": "data_venda",
     },
     "metas_mensais": {
         "env": "XFIT_METAS_PATH",
-        "tipo": "csv",
         "grupo": "cadastros",
         "colunas": COLUNAS_METAS,
         "campo_data": "ano_mes",
     },
     "produtos": {
         "env": "XFIT_PRODUTOS_PATH",
-        "tipo": "csv",
         "grupo": "cadastros",
         "colunas": COLUNAS_PRODUTOS,
         "campo_data": None,
@@ -91,7 +104,7 @@ def carregar_env(caminho: Path = ENV_FILE) -> None:
     # FIXME: parser de .env bem simples. Serve para KEY=VALUE, mas nao tenta
     # cobrir todos os casos que uma lib tipo python-dotenv cobriria.
     if not caminho.exists():
-        raise FileNotFoundError(f"Arquivo .env nao encontrado: {caminho}")
+        return
 
     for linha in caminho.read_text(encoding="utf-8").splitlines():
         linha = linha.strip()
@@ -107,23 +120,21 @@ def carregar_env(caminho: Path = ENV_FILE) -> None:
         os.environ.setdefault(chave.strip(), valor.strip().strip('"').strip("'"))
 
 
-def caminho_env(nome_variavel: str) -> Path:
+def caminho_env(nome_variavel: str) -> Path | None:
     # NOTE: aceitamos caminho relativo para o projeto nao depender do D:\ local.
     # Se um caminho absoluto aparecer no .env, ele ainda precisa ficar dentro
     # da pasta do projeto. Isso evita leitura acidental de arquivo fora da base.
     valor = os.environ.get(nome_variavel)
     if not valor:
-        raise ValueError(f"Variavel obrigatoria ausente no .env: {nome_variavel}")
+        return None
 
     caminho = Path(valor)
     if not caminho.is_absolute():
         caminho = BASE_DIR / caminho
 
     caminho = caminho.resolve()
-    raiz = BASE_DIR.resolve()
-
-    if raiz not in caminho.parents and caminho != raiz:
-        raise ValueError(f"Caminho fora do projeto bloqueado: {nome_variavel}={caminho}")
+    if not caminho_pertence_ao_projeto(caminho, BASE_DIR):
+        raise ValueError(f"Caminho fora do projeto bloqueado: {nome_variavel}")
 
     return caminho
 
@@ -195,41 +206,70 @@ def status_fonte(
 
 
 def mensagem_segura(erro: Exception) -> str:
-    # NOTE: erro com caminho absoluto ajuda no debug local, mas pode vazar a
-    # estrutura da maquina se isso aparecer no painel de status do BI.
-    mensagem = str(erro)
-    return mensagem.replace(str(BASE_DIR.resolve()), "<projeto>")
+    # NOTE: antes a gente tentava mascarar caminho em str(erro). Isso ainda
+    # podia vazar valor da fonte. Para log publico, fica so a categoria.
+    return f"Falha ao carregar fonte ({erro.__class__.__name__})"
 
 
-def ler_fonte(nome_fonte: str, config: dict) -> list[dict]:
-    caminho = caminho_env(config["env"])
+def fontes_contratadas_para_extracao() -> dict:
+    contrato = carregar_contrato_fontes()
+    fontes = {}
+    for fonte in listar_fontes_de_dados(contrato, incluir_markdown=False):
+        nome_fonte = fonte.get("name")
+        regra = REGRAS_EXTRACAO_POR_FONTE.get(nome_fonte)
+        if regra is None:
+            raise ValueError(f"Fonte sem regra de extracao: {nome_fonte}")
+        fontes[nome_fonte] = {**fonte, **regra}
+    return fontes
 
-    if config["tipo"] == "csv":
-        return ler_csv(caminho)
 
-    if config["tipo"] == "json_api":
+def caminho_fonte_contratada_ou_env(fonte: dict) -> Path:
+    caminho_sobrescrito = caminho_env(fonte["env"])
+    if caminho_sobrescrito is not None:
+        # NOTE: mantemos o override por .env para testes e operacao local, mas
+        # o snapshot no status denuncia quando nao bate com o contrato auditado.
+        return caminho_sobrescrito
+    return localizar_arquivo_fonte(fonte, BASE_DIR)
+
+
+def ler_fonte(nome_fonte: str, config: dict) -> tuple[list[dict], dict]:
+    caminho = caminho_fonte_contratada_ou_env(config)
+    assinatura = levantar_assinatura_fonte(config, BASE_DIR, caminho_lido=caminho)
+
+    tipo_fonte = config.get("type")
+    if tipo_fonte == "csv":
+        return ler_csv(caminho), assinatura
+
+    if tipo_fonte in {"json_records", "json_api"}:
         payload = ler_json(caminho)
-        return payload.get("records", [])
+        return payload.get("records", []), assinatura
 
-    raise ValueError(f"Tipo de fonte nao suportado: {config['tipo']}")
+    raise ValueError(f"Tipo de fonte nao suportado: {tipo_fonte}")
 
 
 def tentar_carregar_fonte(nome_fonte: str, config: dict) -> tuple[str, list[dict], dict]:
     try:
-        linhas = ler_fonte(nome_fonte, config)
+        linhas, assinatura = ler_fonte(nome_fonte, config)
         validar_colunas(nome_fonte, linhas, config["colunas"])
         data_minima, data_maxima = resumir_periodo(linhas, config["campo_data"])
+        status = status_fonte(
+            nome_fonte,
+            "sucesso",
+            linhas_lidas=len(linhas),
+            data_minima=data_minima,
+            data_maxima=data_maxima,
+        )
+        status.update({
+            "path": assinatura["path"],
+            "sha256": assinatura["sha256"],
+            "tamanho_bytes": assinatura["tamanho_bytes"],
+            "linhas_ou_registros": assinatura["linhas_ou_registros"],
+        })
 
         return (
             nome_fonte,
             linhas,
-            status_fonte(
-                nome_fonte,
-                "sucesso",
-                linhas_lidas=len(linhas),
-                data_minima=data_minima,
-                data_maxima=data_maxima,
-            ),
+            status,
         )
     except Exception as erro:
         # FIXME: ainda nao temos tabela de auditoria. Quando tiver, talvez seja
@@ -243,13 +283,15 @@ def tentar_carregar_fonte(nome_fonte: str, config: dict) -> tuple[str, list[dict
 
 def carregar_data_lake() -> dict:
     carregar_env()
+    fontes = fontes_contratadas_para_extracao()
 
     resultado = {
         "dados": {},
         "status_cargas": [],
+        "contrato_fontes": "config/data_sources.json",
     }
 
-    for nome_fonte, config in FONTES.items():
+    for nome_fonte, config in fontes.items():
         nome, linhas, status = tentar_carregar_fonte(nome_fonte, config)
         resultado["status_cargas"].append(status)
 

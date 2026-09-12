@@ -8,13 +8,36 @@ from __future__ import annotations
 # NOTE: data/processed fica fora do Git porque guarda trilha operacional local.
 
 import argparse
-import hashlib
 import json
 import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+
+try:
+    from source_contract import (
+        carregar_contrato_fontes as carregar_contrato_fontes_compartilhado,
+        calcular_sha256_arquivo,
+        contar_linhas_csv,
+        contar_registros_json,
+        levantar_assinatura_fonte,
+        localizar_arquivo_fonte as localizar_arquivo_fonte_compartilhado,
+        caminho_pertence_ao_projeto as caminho_pertence_ao_projeto_compartilhado,
+        caminho_relativo_ao_projeto as caminho_relativo_ao_projeto_compartilhado,
+    )
+except ModuleNotFoundError:
+    # FIXME: manter compatibilidade enquanto src ainda nao e pacote instalavel.
+    from src.source_contract import (
+        carregar_contrato_fontes as carregar_contrato_fontes_compartilhado,
+        calcular_sha256_arquivo,
+        contar_linhas_csv,
+        contar_registros_json,
+        levantar_assinatura_fonte,
+        localizar_arquivo_fonte as localizar_arquivo_fonte_compartilhado,
+        caminho_pertence_ao_projeto as caminho_pertence_ao_projeto_compartilhado,
+        caminho_relativo_ao_projeto as caminho_relativo_ao_projeto_compartilhado,
+    )
 
 
 PROJECT_ID = "xfit_wear"
@@ -59,98 +82,23 @@ def validar_destino_auditoria(caminho: Path, raiz: Path) -> Path:
 
 
 def caminho_relativo_ao_projeto(caminho: Path) -> str:
-    return caminho.resolve().relative_to(BASE_DIR.resolve()).as_posix()
+    return caminho_relativo_ao_projeto_compartilhado(caminho, BASE_DIR)
 
 
 def caminho_pertence_ao_projeto(caminho: Path) -> bool:
-    caminho_resolvido = caminho.resolve()
-    raiz = BASE_DIR.resolve()
-    return caminho_resolvido == raiz or raiz in caminho_resolvido.parents
+    return caminho_pertence_ao_projeto_compartilhado(caminho, BASE_DIR)
 
 
 def carregar_contrato_fontes(caminho_config: Path = DATA_SOURCES_FILE) -> dict:
-    if not caminho_config.exists():
-        raise FileNotFoundError(f"Contrato de fontes nao encontrado: {caminho_relativo_ao_projeto(caminho_config)}")
-
-    contrato = json.loads(caminho_config.read_text(encoding="utf-8"))
-    fontes = contrato.get("data_sources", [])
-    if not isinstance(fontes, list) or not fontes:
-        raise ValueError("Contrato de fontes sem data_sources")
-
-    return contrato
+    return carregar_contrato_fontes_compartilhado(caminho_config)
 
 
 def localizar_arquivo_fonte(fonte: dict) -> Path:
-    caminho_relativo_fonte = fonte.get("path")
-    if not caminho_relativo_fonte:
-        raise ValueError(f"Fonte sem path configurado: {fonte.get('name')}")
-
-    caminho = Path(caminho_relativo_fonte)
-    if caminho.is_absolute():
-        raise ValueError(f"Fonte com path absoluto bloqueado: {fonte.get('name')}")
-
-    caminho_resolvido = (BASE_DIR / caminho).resolve()
-    if not caminho_pertence_ao_projeto(caminho_resolvido):
-        raise ValueError(f"Fonte fora do projeto bloqueada: {fonte.get('name')}")
-
-    return caminho_resolvido
-
-
-def calcular_sha256_arquivo(caminho: Path) -> str:
-    digest = hashlib.sha256()
-    with caminho.open("rb") as arquivo:
-        for bloco in iter(lambda: arquivo.read(1024 * 1024), b""):
-            digest.update(bloco)
-    return digest.hexdigest()
-
-
-def contar_linhas_csv(caminho: Path) -> int:
-    with caminho.open("r", encoding="utf-8-sig", newline="") as arquivo:
-        return max(0, sum(1 for _ in arquivo) - 1)
-
-
-def contar_registros_json(caminho: Path) -> int | None:
-    payload = json.loads(caminho.read_text(encoding="utf-8"))
-    if isinstance(payload, dict) and isinstance(payload.get("records"), list):
-        return len(payload["records"])
-    return None
+    return localizar_arquivo_fonte_compartilhado(fonte, BASE_DIR)
 
 
 def levantar_metadados_fonte(fonte: dict) -> dict:
-    caminho = localizar_arquivo_fonte(fonte)
-    item = {
-        "fonte": fonte.get("name"),
-        "path": caminho_relativo_ao_projeto(caminho),
-        "tipo": fonte.get("type"),
-        "obrigatoria": bool(fonte.get("required", True)),
-        "existe": caminho.exists(),
-        "tamanho_bytes": None,
-        "sha256": None,
-        "linhas_ou_registros": None,
-        "erro": None,
-    }
-
-    if not caminho_pertence_ao_projeto(caminho):
-        item["erro"] = "caminho fora do projeto"
-        return item
-
-    if not caminho.exists():
-        item["erro"] = "arquivo ausente"
-        return item
-
-    item["tamanho_bytes"] = caminho.stat().st_size
-    item["sha256"] = calcular_sha256_arquivo(caminho)
-
-    try:
-        if caminho.suffix.lower() == ".csv":
-            item["linhas_ou_registros"] = contar_linhas_csv(caminho)
-        elif caminho.suffix.lower() == ".json":
-            item["linhas_ou_registros"] = contar_registros_json(caminho)
-    except Exception as erro:
-        # FIXME: separar erro_tecnico quando existir tabela etl.erros.
-        item["erro"] = f"falha ao contar registros: {erro.__class__.__name__}"
-
-    return item
+    return levantar_assinatura_fonte(fonte, BASE_DIR)
 
 
 def registrar_execucao_auditoria(evento: dict) -> None:

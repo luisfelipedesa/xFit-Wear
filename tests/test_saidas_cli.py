@@ -22,7 +22,7 @@ class SaidaDosComandosPipelineTest(unittest.TestCase):
         self.projeto_teste = Path(pasta_teste.name).resolve()
         projeto_original = Path(__file__).resolve().parents[1]
         (self.projeto_teste / "src").mkdir()
-        for script in ["data_lake_audit.py", "validate_staging.py", "staging_data.py", "extract_data_lake.py"]:
+        for script in ["data_lake_audit.py", "validate_staging.py", "staging_data.py", "extract_data_lake.py", "source_contract.py"]:
             shutil.copy2(projeto_original / "src" / script, self.projeto_teste / "src" / script)
 
         venda = {
@@ -45,15 +45,15 @@ class SaidaDosComandosPipelineTest(unittest.TestCase):
             })
 
         fontes_teste = [
-            ("XFIT_VENDAS_BARBACENA_PATH", "vendas_barbacena.csv", [venda]),
-            ("XFIT_VENDAS_LAFAIETE_PATH", "vendas_lafaiete.csv", [dict(venda, id_venda="CL-1", loja_id="LJ-CL")]),
-            ("XFIT_ECOMMERCE_JSON_PATH", "vendas_online.json", [dict(venda, id_venda="ONL-1", canal="ecommerce", pedido_online_id="WEB-1")]),
-            ("XFIT_PRODUTOS_PATH", "produtos.csv", [produto]),
-            ("XFIT_METAS_PATH", "metas.csv", metas),
+            ("vendas_barbacena", "XFIT_VENDAS_BARBACENA_PATH", "vendas_barbacena.csv", "csv", [venda]),
+            ("vendas_conselheiro_lafaiete", "XFIT_VENDAS_LAFAIETE_PATH", "vendas_lafaiete.csv", "csv", [dict(venda, id_venda="CL-1", loja_id="LJ-CL")]),
+            ("vendas_ecommerce", "XFIT_ECOMMERCE_JSON_PATH", "vendas_online.json", "json_records", [dict(venda, id_venda="ONL-1", canal="ecommerce", pedido_online_id="WEB-1")]),
+            ("produtos", "XFIT_PRODUTOS_PATH", "produtos.csv", "csv", [produto]),
+            ("metas_mensais", "XFIT_METAS_PATH", "metas.csv", "csv", metas),
         ]
         contrato = []
         configuracao = []
-        for variavel, arquivo_fonte, registros in fontes_teste:
+        for nome_fonte, variavel, arquivo_fonte, tipo_fonte, registros in fontes_teste:
             caminho_fonte = self.projeto_teste / arquivo_fonte
             if caminho_fonte.suffix == ".json":
                 caminho_fonte.write_text(json.dumps({"records": registros}), encoding="utf-8")
@@ -62,7 +62,7 @@ class SaidaDosComandosPipelineTest(unittest.TestCase):
                     gravador_csv = csv.DictWriter(arquivo_csv, fieldnames=list(registros[0]), delimiter=";")
                     gravador_csv.writeheader()
                     gravador_csv.writerows(registros)
-            contrato.append({"name": caminho_fonte.stem, "path": arquivo_fonte, "required": True})
+            contrato.append({"name": nome_fonte, "path": arquivo_fonte, "type": tipo_fonte, "required": True})
             configuracao.append(f"{variavel}={arquivo_fonte}")
         (self.projeto_teste / ".env").write_text("\n".join(configuracao), encoding="utf-8")
         (self.projeto_teste / "config").mkdir()
@@ -87,6 +87,37 @@ class SaidaDosComandosPipelineTest(unittest.TestCase):
                 processo = self.executar_comando_pipeline(script)
                 self.assertEqual(processo.returncode, 0, processo.stdout + processo.stderr)
                 self.assertIn(mensagem, processo.stdout)
+
+    def test_manifesto_auditado_aprova_mesmo_snapshot_na_staging(self) -> None:
+        auditoria = self.executar_comando_pipeline("data_lake_audit.py", "--carga-id", "snapshot-ok")
+        self.assertEqual(auditoria.returncode, 0, auditoria.stdout + auditoria.stderr)
+
+        validacao = self.executar_comando_pipeline(
+            "validate_staging.py",
+            "--manifesto",
+            "data/processed/manifests/snapshot-ok.json",
+        )
+
+        self.assertEqual(validacao.returncode, 0, validacao.stdout + validacao.stderr)
+        self.assertIn("[ok] snapshot_auditoria_carga", validacao.stdout)
+
+    def test_fonte_alterada_depois_da_auditoria_bloqueia_promocao(self) -> None:
+        auditoria = self.executar_comando_pipeline("data_lake_audit.py", "--carga-id", "snapshot-diverge")
+        self.assertEqual(auditoria.returncode, 0, auditoria.stdout + auditoria.stderr)
+
+        produtos = self.projeto_teste / "produtos.csv"
+        conteudo = produtos.read_text(encoding="utf-8-sig")
+        produtos.write_text(conteudo.replace("Top teste", "Top teste alterado"), encoding="utf-8-sig")
+
+        validacao = self.executar_comando_pipeline(
+            "validate_staging.py",
+            "--manifesto",
+            "data/processed/manifests/snapshot-diverge.json",
+        )
+
+        self.assertEqual(validacao.returncode, 1, validacao.stdout + validacao.stderr)
+        self.assertIn("[erro] snapshot_auditoria_carga", validacao.stdout)
+        self.assertIn("snapshot da extracao diverge do manifesto auditado", validacao.stdout)
 
     def test_fonte_ausente_reprova_com_codigo_um(self) -> None:
         (self.projeto_teste / "vendas_barbacena.csv").unlink()

@@ -14,6 +14,8 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
+import json
+from pathlib import Path
 from typing import Iterable
 import sys
 
@@ -25,6 +27,8 @@ except ModuleNotFoundError:
 
 
 LIMITE_EXEMPLOS = 5
+BASE_DIR = Path(__file__).resolve().parents[1]
+MANIFEST_DIR = BASE_DIR / "data" / "processed" / "manifests"
 TOLERANCIA_CENTAVOS = Decimal("0.02")
 MATERIALIDADE_ABSOLUTA_GRUPO = Decimal("1.00")
 MATERIALIDADE_RELATIVA_RECEITA = Decimal("0.0001")
@@ -74,6 +78,12 @@ def adicionar_alerta(check: dict, mensagem: str) -> None:
 
 def exemplo(valores: Iterable) -> list:
     return sorted(set(valores))[:LIMITE_EXEMPLOS]
+
+
+def mensagem_com_total(descricao: str, total: int) -> str:
+    # NOTE: relatorio pode ir para log ou job scheduler. Deixar IDs fora da
+    # mensagem; quem precisar investigar deve usar rejeicoes controladas depois.
+    return f"{descricao}: {total} ocorrencias"
 
 
 def contar_linhas_reais_da_staging_historica(conferencia: dict, tabelas_staging: dict) -> tuple[dict, Counter]:
@@ -216,6 +226,48 @@ def conferir_completude_staging(resultado: dict) -> dict:
     return conferencia
 
 
+def validar_manifesto_da_mesma_carga(resultado: dict, manifesto: dict) -> dict:
+    check = novo_check("snapshot_auditoria_carga")
+    arquivos_manifesto = {
+        arquivo.get("fonte"): arquivo
+        for arquivo in manifesto.get("arquivos", [])
+        if isinstance(arquivo, dict) and arquivo.get("fonte") in FONTES_DA_CARGA_HISTORICA
+    }
+    status_extraidos = {
+        status.get("fonte"): status
+        for status in resultado.get("status_cargas", [])
+        if isinstance(status, dict) and status.get("fonte") in FONTES_DA_CARGA_HISTORICA
+    }
+    campos_snapshot = ("path", "sha256", "tamanho_bytes", "linhas_ou_registros")
+
+    check["metricas"] = {
+        "carga_id": manifesto.get("carga_id"),
+        "fontes_manifesto": len(arquivos_manifesto),
+        "fontes_extraidas": len(status_extraidos),
+        "fontes_com_snapshot_divergente": 0,
+    }
+
+    if manifesto.get("status") != "sucesso":
+        adicionar_erro(check, "manifesto da auditoria nao esta com status sucesso.")
+
+    for fonte in sorted(FONTES_DA_CARGA_HISTORICA):
+        assinatura_auditada = arquivos_manifesto.get(fonte)
+        assinatura_extraida = status_extraidos.get(fonte)
+        if not assinatura_auditada or not assinatura_extraida:
+            adicionar_erro(check, f"{fonte}: snapshot ausente na auditoria ou na extracao.")
+            continue
+
+        for campo in campos_snapshot:
+            if assinatura_auditada.get(campo) != assinatura_extraida.get(campo):
+                check["metricas"]["fontes_com_snapshot_divergente"] += 1
+                adicionar_erro(check, f"{fonte}: snapshot da extracao diverge do manifesto auditado.")
+                break
+
+    # TODO: exigir carga_id no resultado da extracao quando o orquestrador local
+    # existir. Hoje o manifesto e passado ao validador como prova externa.
+    return check
+
+
 def validar_identidade_itens_vendidos(vendas: list[dict]) -> dict:
     check = novo_check("identidade_itens_vendidos")
     cabecalho_por_pedido = {}
@@ -301,10 +353,10 @@ def validar_produtos(vendas: list[dict], produtos: list[dict]) -> dict:
     }
 
     if duplicados:
-        adicionar_erro(check, f"produto_id duplicado no cadastro: {exemplo(duplicados)}")
+        adicionar_erro(check, mensagem_com_total("produto_id duplicado no cadastro", len(duplicados)))
 
     if sem_cadastro:
-        adicionar_erro(check, f"produto_id vendido sem cadastro: {exemplo(sem_cadastro)}")
+        adicionar_erro(check, mensagem_com_total("produto_id vendido sem cadastro", len(sem_cadastro)))
 
     return check
 
@@ -339,13 +391,16 @@ def validar_unidades_e_metas(vendas: list[dict], metas: list[dict]) -> dict:
     }
 
     if unidades_sem_meta:
-        adicionar_erro(check, f"unidade_id com venda e sem meta: {exemplo(unidades_sem_meta)}")
+        adicionar_erro(check, mensagem_com_total("unidade_id com venda e sem meta", len(unidades_sem_meta)))
 
     if canais_conflitantes:
-        adicionar_erro(check, f"unidade_id com canal divergente entre venda/meta: {exemplo(canais_conflitantes)}")
+        adicionar_erro(
+            check,
+            mensagem_com_total("unidade_id com canal divergente entre venda/meta", len(canais_conflitantes)),
+        )
 
     if metas_sem_venda:
-        adicionar_alerta(check, f"unidade_id com meta mas sem venda no periodo: {exemplo(metas_sem_venda)}")
+        adicionar_alerta(check, mensagem_com_total("unidade_id com meta mas sem venda no periodo", len(metas_sem_venda)))
 
     return check
 
@@ -363,7 +418,7 @@ def validar_cobertura_mensal(vendas: list[dict], metas: list[dict]) -> dict:
     }
 
     if vendas_sem_meta:
-        adicionar_erro(check, f"unidade/mes com venda e sem meta: {exemplo(vendas_sem_meta)}")
+        adicionar_erro(check, mensagem_com_total("unidade/mes com venda e sem meta", len(vendas_sem_meta)))
 
     return check
 
@@ -422,16 +477,19 @@ def validar_valores(vendas: list[dict], produtos: list[dict], metas: list[dict])
     }
 
     if vendas_negativas:
-        adicionar_erro(check, f"vendas com quantidade/valor invalido: {exemplo(vendas_negativas)}")
+        adicionar_erro(check, mensagem_com_total("vendas com quantidade/valor invalido", len(set(vendas_negativas))))
 
     if margens_inconsistentes:
-        adicionar_erro(check, f"vendas com margem/custo inconsistente: {exemplo(margens_inconsistentes)}")
+        adicionar_erro(
+            check,
+            mensagem_com_total("vendas com margem/custo inconsistente", len(set(margens_inconsistentes))),
+        )
 
     if canceladas_com_valor:
-        adicionar_erro(check, f"vendas canceladas com receita liquida: {exemplo(canceladas_com_valor)}")
+        adicionar_erro(check, mensagem_com_total("vendas canceladas com receita liquida", len(set(canceladas_com_valor))))
 
     if metas_invalidas:
-        adicionar_erro(check, f"metas com valor invalido: {exemplo(metas_invalidas)}")
+        adicionar_erro(check, mensagem_com_total("metas com valor invalido", len(set(metas_invalidas))))
 
     return check
 
@@ -489,7 +547,7 @@ def validar_arredondamento_agregado(vendas: list[dict]) -> dict:
     if grupos_acima:
         # NOTE: este controle evita que centavos aceitos por linha virem desvio
         # material por fonte/canal/unidade/mes quando o volume crescer.
-        adicionar_erro(check, f"grupos acima da materialidade: {exemplo(grupos_acima)}")
+        adicionar_erro(check, mensagem_com_total("grupos acima da materialidade", len(grupos_acima)))
 
     return check
 
@@ -525,20 +583,22 @@ def validar_status_e_datas(vendas: list[dict], metas: list[dict]) -> dict:
         adicionar_erro(check, f"canal fora do dominio: {exemplo(canais_invalidos)}")
 
     if vendas_futuras:
-        adicionar_erro(check, f"vendas com data futura: {exemplo(vendas_futuras)}")
+        adicionar_erro(check, mensagem_com_total("vendas com data futura", len(vendas_futuras)))
 
     if metas_duplicadas:
-        adicionar_erro(check, f"metas duplicadas por unidade/mes: {exemplo(metas_duplicadas)}")
+        adicionar_erro(check, mensagem_com_total("metas duplicadas por unidade/mes", len(metas_duplicadas)))
 
     return check
 
 
-def validar_staging(resultado: dict | None = None) -> dict:
+def validar_staging(resultado: dict | None = None, manifesto_auditoria: dict | None = None) -> dict:
     if resultado is None:
         resultado = gerar_staging()
 
     completude = conferir_completude_staging(resultado)
     validacoes = [completude]
+    if manifesto_auditoria is not None:
+        validacoes.append(validar_manifesto_da_mesma_carga(resultado, manifesto_auditoria))
     if completude["status"] == "ok":
         staging = resultado["staging"]
         vendas = staging["stg_vendas"]
@@ -673,10 +733,22 @@ def self_test() -> None:
     print("self-test: OK")
 
 
+def carregar_manifesto_auditoria(caminho_informado: str) -> dict:
+    caminho = Path(caminho_informado)
+    if not caminho.is_absolute():
+        caminho = BASE_DIR / caminho
+    caminho = caminho.resolve()
+    raiz_manifestos = MANIFEST_DIR.resolve()
+    if caminho != raiz_manifestos and raiz_manifestos not in caminho.parents:
+        raise ValueError("Manifesto fora do diretorio operacional permitido")
+    return json.loads(caminho.read_text(encoding="utf-8"))
+
+
 # ## Resultado da validacao para o processo que chamou o comando
 def executar_validacao_staging_cli() -> int:
     argumentos = argparse.ArgumentParser(description="Valida a staging antes da promocao para DW.")
     argumentos.add_argument("--self-test", action="store_true", help="testa as regras de validacao")
+    argumentos.add_argument("--manifesto", help="manifesto de auditoria em data/processed/manifests/<carga_id>.json")
     opcoes = argumentos.parse_args()
 
     if opcoes.self_test:
@@ -684,7 +756,8 @@ def executar_validacao_staging_cli() -> int:
         return 0
 
     try:
-        relatorio_staging = validar_staging()
+        manifesto = carregar_manifesto_auditoria(opcoes.manifesto) if opcoes.manifesto else None
+        relatorio_staging = validar_staging(manifesto_auditoria=manifesto)
     except (OSError, ValueError, TypeError, KeyError, ArithmeticError) as erro:
         # NOTE: sem relatorio confiavel, devolver falha tecnica. Nao imprimir
         # a excecao completa, pois ela pode conter valores da fonte ou caminhos.

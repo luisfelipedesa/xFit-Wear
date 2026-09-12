@@ -59,7 +59,7 @@ def para_data(valor: str) -> str:
     try:
         return date.fromisoformat(valor).isoformat()
     except ValueError as erro:
-        raise ValueError(f"data_venda invalida: {valor}") from erro
+        raise ValueError("data_venda invalida") from erro
 
 
 def para_mes(valor: str) -> str:
@@ -67,14 +67,14 @@ def para_mes(valor: str) -> str:
         data_mes = date.fromisoformat(f"{valor}-01")
         return data_mes.strftime("%Y-%m")
     except ValueError as erro:
-        raise ValueError(f"ano_mes invalido: {valor}") from erro
+        raise ValueError("ano_mes invalido") from erro
 
 
 def para_hora(valor: str) -> str:
     try:
         return time.fromisoformat(valor).isoformat()
     except ValueError as erro:
-        raise ValueError(f"hora_venda invalida: {valor}") from erro
+        raise ValueError("hora_venda invalida") from erro
 
 
 def para_decimal(valor: Any, campo: str) -> Decimal:
@@ -108,13 +108,19 @@ def para_inteiro(valor: Any, campo: str) -> int:
     return int(numero)
 
 
+def mensagem_falha_padronizacao(familia_fonte: str, erro: Exception) -> str:
+    # NOTE: status de carga pode aparecer em log ou painel. Nao colocar valor
+    # bruto da fonte aqui; o debug detalhado fica para uma rejeicao controlada.
+    return f"{familia_fonte}: falha de padronizacao ({erro.__class__.__name__})"
+
+
 def validar_linha_venda(linha: dict) -> None:
     # TODO: puxar dominios de tabela de referencia quando o banco existir.
     if linha["status_pedido"] not in STATUS_VALIDOS:
-        raise ValueError(f"status_pedido invalido: {linha['status_pedido']}")
+        raise ValueError("status_pedido invalido")
 
     if linha["canal"] not in CANAIS_VALIDOS:
-        raise ValueError(f"canal invalido: {linha['canal']}")
+        raise ValueError("canal invalido")
 
     if not linha.get("produto_id"):
         raise ValueError("produto_id vazio")
@@ -149,7 +155,7 @@ def validar_linha_meta(linha: dict) -> None:
     para_mes(linha["ano_mes"])
 
     if linha["canal"] not in CANAIS_VALIDOS:
-        raise ValueError(f"canal invalido: {linha['canal']}")
+        raise ValueError("canal invalido")
 
     if not linha.get("unidade_id"):
         raise ValueError("unidade_id vazio")
@@ -282,7 +288,14 @@ def gerar_staging_vendas(dados_extraidos: dict) -> tuple[list[dict], list[dict]]
         except Exception as erro:
             # TODO: por enquanto, se uma linha quebrar, a fonte inteira falha.
             # Depois melhorar para separar linhas rejeitadas e linhas validas.
-            status.append(status_staging(fonte, "falha", linhas_entrada=len(linhas), mensagem=str(erro)))
+            status.append(
+                status_staging(
+                    fonte,
+                    "falha",
+                    linhas_entrada=len(linhas),
+                    mensagem=mensagem_falha_padronizacao("vendas", erro),
+                )
+            )
 
     return stg_vendas, status
 
@@ -304,7 +317,14 @@ def gerar_staging_produtos(dados_extraidos: dict) -> tuple[list[dict], list[dict
         ]
     except Exception as erro:
         # TODO: rejeicao linha a linha vai ajudar quando o cadastro crescer.
-        return [], [status_staging(FONTE_PRODUTOS, "falha", linhas_entrada=len(linhas), mensagem=str(erro))]
+        return [], [
+            status_staging(
+                FONTE_PRODUTOS,
+                "falha",
+                linhas_entrada=len(linhas),
+                mensagem=mensagem_falha_padronizacao("produtos", erro),
+            )
+        ]
 
 
 def gerar_staging_metas(dados_extraidos: dict) -> tuple[list[dict], list[dict]]:
@@ -324,7 +344,14 @@ def gerar_staging_metas(dados_extraidos: dict) -> tuple[list[dict], list[dict]]:
         ]
     except Exception as erro:
         # FIXME: metas podem ter erro em uma unidade/mes e ainda assim outras linhas boas.
-        return [], [status_staging(FONTE_METAS, "falha", linhas_entrada=len(linhas), mensagem=str(erro))]
+        return [], [
+            status_staging(
+                FONTE_METAS,
+                "falha",
+                linhas_entrada=len(linhas),
+                mensagem=mensagem_falha_padronizacao("metas", erro),
+            )
+        ]
 
 
 def gerar_staging() -> dict:
