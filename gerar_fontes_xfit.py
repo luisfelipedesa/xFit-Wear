@@ -401,7 +401,7 @@ def write_reference_files(goals: list[dict]) -> None:
 Fontes principais:
 - `data/raw/lojas_fisicas/vendas_barbacena.csv`: vendas da loja fisica de Barbacena, MG.
 - `data/raw/lojas_fisicas/vendas_conselheiro_lafaiete.csv`: vendas da loja fisica de Conselheiro Lafaiete, MG.
-- `data/api/vendas_online_api.json`: base que simula o payload de uma API de ecommerce.
+- `data/api/vendas_online_api.json`: base demonstrativa no formato de payload de uma API de ecommerce.
 - `data/api/mock_api_server.py`: servidor HTTP local, sem dependencias externas, para consumir a fonte online por API.
 - `data/reference/metas_mensais.csv`: metas por mes e canal/unidade.
 - `data/reference/produtos.csv`: cadastro simples de produtos.
