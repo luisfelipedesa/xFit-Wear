@@ -1,4 +1,4 @@
--- # Validacoes SQL do DW local/futuro Supabase
+-- # Validacoes SQL do DW em Supabase/Postgres
 --
 -- Rodar depois das cargas dimensionais. As consultas de problema devem retornar
 -- zero linhas. O resumo pode ser consumido pelo Airflow como conferencia simples.
@@ -61,3 +61,32 @@ select unidade_id, ano_mes, count(*) as linhas
 from dw.fato_metas
 group by unidade_id, ano_mes
 having count(*) > 1;
+
+-- Ecommerce representa a operacao online, nao um destino de entrega.
+select unidade_id, cidade, uf
+from dw.dim_unidade
+where unidade_id = 'EC-BR' and (cidade is not null or uf is not null);
+
+-- Conferencia por item; totais iguais sozinhos poderiam esconder compensacoes.
+select count(*) as itens_divergentes
+from stg.stg_vendas s
+full join dw.fato_vendas f using (fonte, id_venda, produto_id)
+where s.fonte is null or f.venda_item_id is null or
+    row(to_char(s.data_venda, 'YYYYMMDD')::integer, s.unidade_id, s.quantidade,
+        s.valor_bruto, s.valor_desconto, s.valor_liquido, s.custo_total,
+        s.margem_bruta, s.status_pedido)
+    is distinct from
+    row(f.data_id, f.unidade_id, f.quantidade, f.valor_bruto, f.valor_desconto,
+        f.valor_liquido, f.custo_total, f.margem_bruta, f.status_pedido);
+
+-- Produtos cadastrados devem preservar atributos e valores.
+select count(*) as produtos_divergentes
+from stg.stg_produtos s
+full join dw.dim_produto d using (produto_id)
+where s.produto_id is null or d.produto_id is null or
+    row(s.produto, s.genero_produto, s.categoria, s.preco_lista, s.custo_padrao)
+    is distinct from
+    row(d.produto, d.genero_produto, d.categoria, d.preco_lista, d.custo_padrao);
+
+select carga_dw_id, etapa, status, linhas_afetadas, atualizado_em
+from etl.cargas_dw order by criado_em desc;

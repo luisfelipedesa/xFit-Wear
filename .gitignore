@@ -10,7 +10,7 @@ venv/
 *.log
 desktop.ini
 
-# Dados locais do projeto. A base e ficticia, mas ainda assim nao precisa ir para Git.
+# Dados demonstrativos e artefatos operacionais ficam fora do Git.
 /README_FONTES.md
 data/raw/
 data/api/*.json
@@ -24,3 +24,5 @@ data/processed/dw/
 /docs/operacao_producao.md
 # Instrucoes de continuidade locais, sem registro operacional no GitHub.
 /AGENTS.md
+supabase/.temp/
+supabase/.branches/

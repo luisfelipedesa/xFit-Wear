@@ -5,7 +5,7 @@
 -- staging e DW; SQL promove staging para modelo dimensional.
 --
 -- NOTE: contrato espelhado na migration inicial em supabase/migrations.
--- TODO: definir grants minimos para o futuro papel de servico do pipeline.
+-- TODO: separar grants por papel de servico quando houver projeto Supabase real.
 -- TODO: mover logs detalhados de falha para tabela protegida quando o Airflow existir.
 
 create schema if not exists stg;
