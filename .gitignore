@@ -13,11 +13,13 @@ desktop.ini
 # Dados demonstrativos e artefatos operacionais ficam fora do Git.
 /README_FONTES.md
 data/raw/
+data/inbox/
 data/api/*.json
 data/reference/*.csv
 data/processed/backups/
 data/processed/logs/
 data/processed/manifests/
+data/processed/staging_diaria/
 # DW local: nenhuma tabela, exportacao ou arquivo de dados deve ser versionado.
 data/processed/dw/
 # Registro operacional mantido somente no ambiente local.
@@ -26,3 +28,13 @@ data/processed/dw/
 /AGENTS.md
 supabase/.temp/
 supabase/.branches/
+
+# Airflow local: configuracao gerada, credenciais, logs e metadata ficam fora do Git.
+airflow/.env
+airflow/logs/
+airflow/config/airflow.cfg
+
+# Memoria operacional local entre conversas; nao publicar.
+/docs/CONTEXTO_ATUAL.md
+/docs/DECISOES.md
+/docs/memoria/

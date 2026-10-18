@@ -4,6 +4,7 @@
 Usa arquivos descartaveis. Nao altera fontes, .env ou backups do projeto.
 """
 import contextlib
+import errno
 from concurrent.futures import ThreadPoolExecutor
 import io
 from pathlib import Path
@@ -81,6 +82,20 @@ class ProtecaoDaCargaTest(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             audit.copiar_fontes_para_backup("config-sources-check", self.fontes)
         self.assertEqual(antes, [p.read_bytes() for p in caminhos])
+
+    def test_drvfs_sem_copystat_preserva_conteudo_e_registra_limite(self) -> None:
+        with patch.object(audit.shutil, 'copystat',
+                          side_effect=PermissionError(errno.EPERM, 'metadados')):
+            backup = audit.copiar_fontes_para_backup('drvfs', self.fontes)
+        self.assertEqual((self.backups / 'drvfs/fonte.csv').read_bytes(),
+                         self.fonte.read_bytes())
+        self.assertEqual(backup['metadados_nao_preservados'], ['fonte.csv'])
+
+    def test_acesso_negado_a_metadados_continua_bloqueado(self) -> None:
+        with patch.object(audit.shutil, 'copystat',
+                          side_effect=PermissionError(errno.EACCES, 'negado')):
+            with self.assertRaises(PermissionError):
+                audit.copiar_fontes_para_backup('negado', self.fontes)
 
     def test_manifesto_sem_backup_tambem_reserva_id(self) -> None:
         audit.auditar_fontes_da_carga("inventario")

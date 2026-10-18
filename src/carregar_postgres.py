@@ -128,6 +128,16 @@ def conferir_transferencia_staging(cursor, staging):
         )
         if cursor.fetchone() != esperado:
             raise ValueError('Staging remota diverge do snapshot aprovado')
+        colunas = sql.SQL(', ').join(map(sql.Identifier, staging[tabela][0]))
+        temporaria = sql.Identifier('xfit_' + tabela)
+        destino = sql.Identifier('stg', tabela)
+        cursor.execute(sql.SQL(
+            'select exists ((select {campos} from {origem} except all '
+            'select {campos} from {destino}) union all '
+            '(select {campos} from {destino} except all select {campos} from {origem}))'
+        ).format(campos=colunas, origem=temporaria, destino=destino))
+        if cursor.fetchone() != (False,):
+            raise ValueError('Registros transferidos divergem do snapshot aprovado')
 
 
 def registrar_status_local(carga_id, status, mensagem):
@@ -144,33 +154,67 @@ def promover_dw_postgres(cursor, carga_dw_id):
         raise ValueError('Promocao dimensional nao foi aprovada')
 
 
-def executar_carga_postgres(conexao, carga_id):
+def executar_carga_postgres(conexao, carga_id, *, preparar=None, transferir=None,
+                           reutilizar=False, identidade_origem=None):
     validar_formato_id_carga(carga_id)
     conferir_papel_conexao(conexao)
     carga_dw_id = 'dw-' + carga_id
     if not conexao.execute('select pg_try_advisory_lock(%s)', (CHAVE_BLOQUEIO,)).fetchone()[0]:
         raise ValueError('Outra carga do pipeline esta em execucao')
     registrada = False
+    transacao_iniciada = False
     try:
+        if reutilizar:
+            anterior = conexao.execute('select status, carga_origem_id from etl.cargas_dw where carga_dw_id = %s',
+                                      (carga_dw_id,)).fetchone()
+            if anterior:
+                if anterior[0] != 'sucesso':
+                    raise ValueError('Carga anterior exige reconciliacao antes de repetir')
+                if anterior[1] != identidade_origem:
+                    raise ValueError('revisao_necessaria: data ja publicada com outra identidade')
+                staging, relatorio = preparar(carga_id)
+                with conexao.transaction():
+                    with conexao.cursor() as cursor:
+                        cursor.execute("set local lock_timeout = '15s'")
+                        cursor.execute("set local statement_timeout = '10min'")
+                        cursor.execute('lock table stg.stg_produtos, stg.stg_metas, stg.stg_vendas, '
+                                       'dw.dim_data, dw.dim_produto, dw.dim_unidade, '
+                                       'dw.fato_vendas, dw.fato_metas in share row exclusive mode')
+                        transacao_iniciada = True
+                        transferir(cursor, staging, somente_conferir=True)
+                        cursor.execute((RAIZ / 'sql' / 'conferir_dw_diario.sql').read_text(encoding='utf-8'))
+                return {'status': 'reutilizado', 'carga_id': carga_id, 'carga_dw_id': carga_dw_id}
         conexao.execute(
             "insert into etl.cargas_dw (carga_dw_id, carga_origem_id, etapa, status) "
-            "values (%s, %s, 'validacao', 'iniciada')", (carga_dw_id, carga_id))
+            "values (%s, %s, 'validacao', 'iniciada')", (carga_dw_id, identidade_origem or carga_id))
         registrada = True
-        staging, relatorio = preparar_staging_aprovada(carga_id)
+        staging, relatorio = (preparar or preparar_staging_aprovada)(carga_id)
         with conexao.transaction():
             with conexao.cursor() as cursor:
                 cursor.execute("set local statement_timeout = '10min'")
                 cursor.execute("set local lock_timeout = '15s'")
                 cursor.execute("set local timezone = 'UTC'")
-                enviar_staging_postgres(cursor, staging)
-                conferir_transferencia_staging(cursor, staging)
-                promover_dw_postgres(cursor, carga_dw_id)
+                cursor.execute('lock table stg.stg_produtos, stg.stg_metas, stg.stg_vendas, '
+                               'dw.dim_data, dw.dim_produto, dw.dim_unidade, '
+                               'dw.fato_vendas, dw.fato_metas in share row exclusive mode')
+                transacao_iniciada = True
+                if transferir is None:
+                    enviar_staging_postgres(cursor, staging)
+                    conferir_transferencia_staging(cursor, staging)
+                    promover_dw_postgres(cursor, carga_dw_id)
+                else:
+                    transferir(cursor, staging)
+                    cursor.execute("select set_config('xfit.permitir_zero', 'true', true)")
+                    promover_dw_postgres(cursor, carga_dw_id)
         resultado = {'status': 'sucesso', 'carga_id': carga_id, 'carga_dw_id': carga_dw_id,
                      'linhas_staging': relatorio['linhas']}
         # NOTE: erro de log depois do commit nao deve marcar uma carga concluida como erro.
     except Exception as erro:
         mensagem = f'Carga interrompida ({type(erro).__name__}); dados anteriores preservados'
-        if registrada:
+        indeterminada = transacao_iniciada and isinstance(erro, (psycopg.OperationalError, psycopg.InterfaceError))
+        if indeterminada:
+            mensagem = 'Resultado da transacao nao confirmado; reconciliar historico e DW antes de repetir'
+        if registrada and not indeterminada:
             try:
                 conexao.execute("update etl.cargas_dw set status = 'erro', mensagem_publica = %s, "
                                 'atualizado_em = now() where carga_dw_id = %s', (mensagem, carga_dw_id))
@@ -178,7 +222,7 @@ def executar_carga_postgres(conexao, carga_id):
                 # TODO: reconciliar cargas iniciadas quando a conexao cair antes do registro da falha.
                 pass
         try:
-            registrar_status_local(carga_id, 'erro', mensagem)
+            registrar_status_local(carga_id, 'indeterminada' if indeterminada else 'erro', mensagem)
         except OSError:
             pass
         raise

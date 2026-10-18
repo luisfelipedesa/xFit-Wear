@@ -279,6 +279,7 @@ Concluído:
 
 ### Supabase/PostgreSQL
 
+- consulta periódica no GitHub Actions: [operação e limites do intervalo de cinco dias](docs/disponibilidade_supabase.md);
 - formalizar cargas incrementais, remoções na origem e recuperação de falhas;
 - reconciliar registros `iniciada` após desconexões abruptas e testar recuperação de backup;
 - revisar grants, RLS e policies antes de qualquer exposição para dashboard;
@@ -286,15 +287,43 @@ Concluído:
 
 ### Airflow
 
-- criar DAG para auditoria, extração, staging, validação e carga dimensional;
-- propagar `carga_id` e `carga_dw_id` entre tarefas;
-- interromper o fluxo quando auditoria ou staging forem reprovadas;
-- registrar logs e status de execução por etapa;
-- separar falha técnica de reprovação de regra de negócio;
-- preparar reprocessamento controlado e idempotência das cargas.
+- alimentação por unidade/data e proteções da carga: [contrato e operação dos fluxos](docs/fluxos_airflow.md);
+- tratamento diário: [contrato v1 e critérios de aceite](docs/contrato_tratamento_diario.md), implementado com staging imutável e testes isolados;
+- `xfit_alimentar_datalake`: recebe cada unidade independentemente e sinaliza ausência, erro ou declaração de dia sem movimento;
+- `xfit_pipeline_diario`: recebe e trata cada unidade, exige o dia completo e publica somente os lotes aprovados; `publicar_dw=false` por padrão para validar sem gravar no banco;
+- [homologação remota do pipeline diário](docs/homologacao_pipeline_diario.md): cinco cenários executados pelo worker, com reprocessamento, ausência e zero; histórico de negócio preservado;
+- ambiente local no Docker Desktop do Windows, contexto `desktop-linux`, com Compose e Airflow 3.3.2;
+- stack de desenvolvimento disponível em `http://127.0.0.1:8080`, com credenciais locais em `airflow/.env`;
+- no PowerShell, dentro de `airflow/`, iniciar com `docker --context desktop-linux compose up -d`;
+- parar com `docker --context desktop-linux compose stop`, preservando contêineres e volumes;
+- construir a imagem com `docker --context desktop-linux compose build`;
+- no Docker Desktop, os serviços aparecem agrupados como `airflow`; as DAGs aparecem na interface web;
+- `xfit_validar_fontes`: auditoria, backup com hashes conferidos, extração, staging e validação;
+- `xfit_carga_dw`: verifica conexão/papel/TLS e executa o pipeline completo com promoção transacional;
+- os quatro fluxos são manuais e aceitam uma execução ativa por DAG; a nova DAG diária inicia pausada;
+- cada execução deriva um `carga_id` do DAG/run ID; a publicação diária usa `dw-diario-YYYYMMDD` com identidade de conteúdo persistida, impedindo substituir uma data já publicada;
+- dados ficam em arquivos/na memória do executor; XCom recebe somente identificadores;
+- a carga completa mantém auditoria, validação e transação no executor existente, sem dividir dados entre tarefas;
+- retries automáticos estão desativados: antes de limpar/reexecutar uma tarefa de carga, conferir `etl.cargas_dw` e o manifesto; para reprocessar após reconciliação, disparar uma nova execução;
+- fontes e código são montados somente para leitura; backups, logs, manifestos e saídas operacionais permitem escrita;
+- a configuração PostgreSQL usa o `.env` privado da raiz e a CA local; o build não recebe credenciais;
+- agendamento periódico e recuperação após commit ambíguo continuam pendentes.
+
+Verificação de 2026-10-15: as duas DAGs importaram sem erros e
+`xfit_validar_fontes` concluiu com sucesso pelo scheduler/worker. A carga do DW
+permanece pausada: o pooler PostgreSQL rejeitou a configuração local com
+`tenant/user not found`, tanto no Windows quanto no contêiner. Conferir o host,
+o identificador do projeto e o usuário do pooler no `.env` antes de disparar.
+
+Em backups pelo Docker/WSL sobre arquivos Windows, a cópia de permissões e datas
+pode retornar `EPERM`. Nesse caso o manifesto registra `metadados_nao_preservados`;
+o conteúdo continua obrigatório e seus hashes são conferidos antes da promoção.
+Falhas de leitura/escrita e acesso negado continuam interrompendo o fluxo.
 
 ### Dashboard e Analytics
 
+- [contrato v1 da Visão Geral Comercial](docs/contrato_dashboard.md): indicadores, filtros, metas, atualização e limites de acesso;
+- camada privada `bi` com cinco views de consumo e papel `xfit_dashboard` somente leitura, sem login configurado; validação em `sql/validar_dashboard.sql`;
 - construir dashboard interativo em Python;
 - consumir apenas views ou consultas aprovadas do DW;
 - apresentar KPIs comerciais: receita líquida, margem, ticket médio, pedidos, devoluções, metas e mix de produto;
@@ -326,7 +355,7 @@ Este projeto ainda não deve ser apresentado como um produto em produção.
 
 Ainda faltam:
 
-- Airflow real;
+- agendamento periódico do pipeline e validação operacional contínua;
 - dashboard;
 - deploy;
 - autenticação/autorização de usuário final;

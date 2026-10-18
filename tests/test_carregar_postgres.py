@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 import carregar_postgres as carga
@@ -49,6 +49,31 @@ class ConfiguracaoCargaPostgresTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'snapshot aprovado'):
             carga.conferir_transferencia_staging(cursor, {'stg_produtos': [
                 {'preco_lista': 10, 'custo_padrao': 5}]})
+
+    def test_totais_iguais_nao_escondem_registros_divergentes(self):
+        cursor = Mock()
+        cursor.fetchone.side_effect = [(1, 10, 5), (True,)]
+        with self.assertRaisesRegex(ValueError, 'Registros transferidos'):
+            carga.conferir_transferencia_staging(cursor, {'stg_produtos': [
+                {'preco_lista': 10, 'custo_padrao': 5}]})
+
+    def test_perda_durante_commit_nao_afirma_rollback_nem_marca_erro(self):
+        conexao = MagicMock()
+        conexao.closed = True
+        conexao.execute.return_value.fetchone.return_value = (True,)
+        conexao.transaction.return_value.__enter__ = Mock()
+        conexao.transaction.return_value.__exit__ = Mock(side_effect=carga.psycopg.OperationalError('privado'))
+        with patch.object(carga, 'conferir_papel_conexao'), \
+             patch.object(carga, 'preparar_staging_aprovada', return_value=({}, {'linhas': {}})), \
+             patch.object(carga, 'enviar_staging_postgres'), \
+             patch.object(carga, 'conferir_transferencia_staging'), \
+             patch.object(carga, 'promover_dw_postgres'), \
+             patch.object(carga, 'registrar_status_local') as registrar:
+            with self.assertRaises(carga.psycopg.OperationalError):
+                carga.executar_carga_postgres(conexao, 'commit-incerto')
+        self.assertEqual(registrar.call_args.args[1], 'indeterminada')
+        self.assertIn('reconciliar', registrar.call_args.args[2])
+        self.assertFalse(any('update etl.cargas_dw' in str(chamada) for chamada in conexao.execute.call_args_list))
 
 
 if __name__ == '__main__':

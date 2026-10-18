@@ -8,6 +8,7 @@ from __future__ import annotations
 # NOTE: data/processed fica fora do Git porque guarda trilha operacional local.
 
 import argparse
+import errno
 import json
 import re
 import shutil
@@ -116,6 +117,7 @@ def copiar_fontes_para_backup(carga_id: str, fontes: list[dict]) -> dict:
         raise FileExistsError("Carga ja possui manifesto; use um novo carga_id")
     arquivos_copiados = []
     arquivos_ausentes = []
+    metadados_nao_preservados = []
     copias = []
 
     # ## Conferir todas as fontes antes de criar a pasta da carga
@@ -137,7 +139,12 @@ def copiar_fontes_para_backup(carga_id: str, fontes: list[dict]) -> dict:
         destino.parent.mkdir(parents=True, exist_ok=True)
         with caminho.open("rb") as origem, destino.open("xb") as copia:
             shutil.copyfileobj(origem, copia)
-        shutil.copystat(caminho, destino)
+        try:
+            shutil.copystat(caminho, destino)
+        except PermissionError as erro:
+            if erro.errno != errno.EPERM:
+                raise
+            metadados_nao_preservados.append(caminho_relativo_ao_projeto(caminho))
         arquivos_copiados.append(caminho_relativo_ao_projeto(caminho))
 
     # TODO: registrar estado incompleto e validar hash da copia na mesma carga.
@@ -146,6 +153,7 @@ def copiar_fontes_para_backup(carga_id: str, fontes: list[dict]) -> dict:
         "backup_dir": caminho_relativo_ao_projeto(destino_raiz),
         "arquivos_copiados": arquivos_copiados,
         "arquivos_ausentes": arquivos_ausentes,
+        "metadados_nao_preservados": metadados_nao_preservados,
     }
 
 

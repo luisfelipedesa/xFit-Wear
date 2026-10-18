@@ -12,13 +12,14 @@ begin
     if not found then
         raise exception 'Carga ausente ou ja finalizada';
     end if;
-    if not exists (select 1 from stg.stg_vendas)
+    if (not exists (select 1 from stg.stg_vendas)
+        and coalesce(current_setting('xfit.permitir_zero', true), 'false') <> 'true')
        or not exists (select 1 from stg.stg_produtos)
        or not exists (select 1 from stg.stg_metas) then
         raise exception 'Staging incompleta';
     end if;
 
-    select min(data_venda), greatest(max(data_venda),
+    select least(min(data_venda), (select (min(ano_mes) || '-01')::date from stg.stg_metas)), greatest(max(data_venda),
         (select (max(ano_mes) || '-01')::date + interval '1 month - 1 day' from stg.stg_metas)::date)
     into v_inicio, v_fim from stg.stg_vendas;
     v_linhas := dw.carregar_dim_data(v_inicio, v_fim);
@@ -30,6 +31,14 @@ begin
     if (select count(*) from stg.stg_vendas) <> (select count(*) from dw.fato_vendas)
        or (select count(*) from stg.stg_metas) <> (select count(*) from dw.fato_metas)
        or (select count(*) from stg.stg_produtos) <> (select count(*) from dw.dim_produto)
+       or exists (
+           select 1 from stg.stg_produtos s
+           left join dw.dim_produto p using (produto_id)
+           where p.produto_id is null or
+               row(s.produto, s.genero_produto, s.categoria, s.preco_lista, s.custo_padrao)
+               is distinct from
+               row(p.produto, p.genero_produto, p.categoria, p.preco_lista, p.custo_padrao)
+       )
        or exists (
            select 1 from stg.stg_vendas s
            left join dw.fato_vendas f using (fonte, id_venda, produto_id)
