@@ -323,15 +323,15 @@ Falhas de leitura/escrita e acesso negado continuam interrompendo o fluxo.
 ### Dashboard e Analytics
 
 - [contrato v1 da Visão Geral Comercial](docs/contrato_dashboard.md): indicadores, filtros, metas, atualização e limites de acesso;
-- camada privada `bi` com cinco views de consumo e papel `xfit_dashboard` somente leitura, sem login configurado; validação em `sql/validar_dashboard.sql`;
-- construir dashboard interativo em Python;
+- camada privada `bi` com cinco views de consumo e papel `xfit_dashboard` somente leitura, acessado pelo login BI dedicado; validação em `sql/validar_dashboard.sql`;
+- dashboard Streamlit em `dashboard/app.py`, publicado como portfólio público com dados demonstrativos; credenciais permanecem no servidor e o banco continua privado. Modo OIDC/allowlist disponível para configuração privada;
 - consumir apenas views ou consultas aprovadas do DW;
 - apresentar KPIs comerciais: receita líquida, margem, ticket médio, pedidos, devoluções, metas e mix de produto;
 - incluir status/freshness das cargas para evitar análise sobre dados incompletos.
 
 ### Deploy
 
-- publicar a camada visual futuramente na Vercel;
+- [guia de deploy Vercel + AWS](docs/deploy_dashboard.md): Vercel publica somente `web/`; AWS executa Streamlit em Docker com proxy HTTPS;
 - manter segredos fora do frontend;
 - configurar variáveis de ambiente por ambiente;
 - validar CORS, headers, logs e exposição de dados;
@@ -353,13 +353,14 @@ Falhas de leitura/escrita e acesso negado continuam interrompendo o fluxo.
 
 Este projeto ainda não deve ser apresentado como um produto em produção.
 
+O portfólio está publicado em [x-fit-wear.vercel.app](https://x-fit-wear.vercel.app/),
+com [dashboard público na AWS](https://xfit.3.133.147.43.sslip.io/), HTTPS e
+consulta às views por credencial BI dedicada. Publicação verificada em 28/10/2026;
+não implica operação comercial ou disponibilidade gratuita permanente.
+
 Ainda faltam:
 
 - agendamento periódico do pipeline e validação operacional contínua;
-- dashboard;
-- deploy;
-- autenticação/autorização de usuário final;
-- policies finais de RLS para consumo analítico;
 - recuperação após perda abrupta de conexão, restauração de backups e contrato de cargas incrementais/remoções.
 
 O rollback cobre alterações transacionais, não garante sequências sem lacunas nem resolve confirmação ambígua se a conexão cair durante o commit. Nessas situações, confira `etl.cargas_dw` e reconcilie o DW antes de uma nova tentativa. O papel do pipeline não deve ser reutilizado como credencial de consumo de um dashboard.

@@ -1,0 +1,53 @@
+services:
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: dashboard/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: 1.0
+    environment:
+      XFIT_DASHBOARD_DEMO: "0"
+      XFIT_DASHBOARD_PUBLIC: "1"
+      XFIT_BI_PG_HOST: ${XFIT_BI_PG_HOST:?Configure o host do pooler de sessao}
+      XFIT_BI_PG_DATABASE: postgres
+      XFIT_BI_PG_USER: ${XFIT_BI_PG_USER:?Configure xfit_dashboard_app.PROJECT_REF}
+      XFIT_BI_PG_SSLROOTCERT: /run/secrets/postgres-ca.crt
+    secrets:
+      - source: bi_password
+        target: bi_password
+      - source: postgres_ca
+        target: postgres-ca.crt
+    entrypoint: ["/bin/sh", "-ec", "export XFIT_BI_PG_PASSWORD=$$(cat /run/secrets/bi_password); exec streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501"]
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  proxy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      XFIT_DASHBOARD_DOMAIN: ${XFIT_DASHBOARD_DOMAIN:?Configure o dominio do dashboard}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+secrets:
+  bi_password:
+    file: ${XFIT_BI_PASSWORD_FILE:?Informe arquivo protegido da senha BI}
+  postgres_ca:
+    file: ${XFIT_POSTGRES_CA_FILE:?Informe CA oficial do projeto}
+volumes:
+  caddy_data:
+  caddy_config:

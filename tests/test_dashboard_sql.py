@@ -1,9 +1,12 @@
 """Contrato de indicadores e isolamento da camada BI em PostgreSQL descartavel."""
 
 from decimal import Decimal
+from datetime import date
+from contextlib import nullcontext
 import os
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 import psycopg
 
@@ -90,6 +93,32 @@ class IndicadoresDashboardLocalTest(unittest.TestCase):
         self.assertAlmostEqual(valores[0], Decimal(100) / 3)
         self.assertEqual(valores[1], 25)
         self.assertAlmostEqual(valores[2], Decimal(9000) / 140)
+
+    def test_consulta_python_consumidora_preserva_grao_e_filtros(self):
+        from dashboard.dados import carregar_contexto, carregar_painel, consultar_vendas
+        from dashboard.metricas import resumir
+        from psycopg.rows import dict_row
+
+        self.conexao.execute('set local role xfit_dashboard')
+        with self.conexao.cursor(row_factory=dict_row) as leitor:
+            vendas = consultar_vendas(leitor, date(2020, 1, 1), date(2020, 1, 31),
+                                       ['LJ-BQ', 'EC-BR'], ['loja_fisica', 'ecommerce'])
+            totais = resumir(vendas)
+            self.assertEqual(totais['receita_liquida_concluida'], 140)
+            self.assertEqual(totais['pedidos_concluidos'], 2)
+            self.assertEqual(totais['ticket_medio'], 70)
+            vazio = consultar_vendas(leitor, date(2020, 1, 1), date(2020, 1, 31), [], [])
+            self.assertEqual(vazio, [])
+            with patch('dashboard.dados.conectar', return_value=nullcontext(leitor)):
+                atualizacao, unidades, categorias = carregar_contexto()
+                self.assertEqual(atualizacao['ultima_data_venda'], date(2020, 1, 3))
+                self.assertEqual(len(unidades), 2)
+                self.assertEqual(categorias, ['A', 'B'])
+                vendas, mix, mensais = carregar_painel(date(2020, 1, 1), date(2020, 1, 31),
+                                                      ['LJ-BQ', 'EC-BR'], ['loja_fisica', 'ecommerce'], 'A')
+            self.assertEqual(resumir(vendas)['receita_liquida_concluida'], 80)
+            self.assertEqual(len(mix), 1)
+            self.assertEqual(sum(linha['meta_receita_liquida'] for linha in mensais), 300)
 
     def test_meta_nao_multiplica_por_item_e_mes_sem_vendas_nao_vira_fracasso(self):
         self.assertEqual(self.leitura("select meta_receita_liquida,receita_liquida_concluida,"

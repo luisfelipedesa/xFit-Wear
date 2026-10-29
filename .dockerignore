@@ -3,3 +3,10 @@
 !airflow/
 airflow/**
 !airflow/Dockerfile
+!dashboard/
+!dashboard/*.py
+!dashboard/requirements.txt
+!dashboard/requirements.lock
+!dashboard/Dockerfile
+!.streamlit/
+!.streamlit/config.toml

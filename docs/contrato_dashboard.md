@@ -107,7 +107,8 @@ Exibir separadamente:
 A completude por unidade/data esta nos manifestos do lake, nao numa tabela SQL
 consumivel por esta camada. Portanto completude_datalake_disponivel e
 completude_periodo_comprovada permanecem false; nao afirmar "dados completos".
-O aviso e obrigatorio mesmo quando a ultima carga foi recente. Nao adotar SLA de
+O aviso textual foi substituido pelo farol autorizado em 28/10, descrito abaixo.
+Nao adotar SLA de
 atraso arbitrario antes de definir horario esperado das entregas. Dados historicos
 de portfolio terminando em julho nao representam vendas atuais em outubro.
 
@@ -169,4 +170,87 @@ existente, nao indicadores de uma operacao comercial comprovada.
 Construir a primeira tela somente apos escolher biblioteca Python e confirmar
 compatibilidade de hospedagem com o deploy pretendido. Streamlit/Dash e uma
 aplicacao Python persistente nao devem ser tratados automaticamente como deploy
-nativo na Vercel. Nao houve escolha de framework nem alteracao de stack nesta etapa.
+nativo na Vercel. Nao houve escolha de framework na etapa de definicoes.
+Em pedido posterior de 18/10/2026, o usuario escolheu Streamlit na AWS e pagina
+estatica na Vercel. Implementacao local em `dashboard/`; operacao descrita em
+`docs/deploy_dashboard.md`. Deploy explicitamente suspenso por ordem do usuario
+ate nova autorizacao, enquanto a interface passa por ajustes.
+
+## Ajuste autorizado: comparativo anual e apresentacao pt-BR
+
+Em 18/10/2026, usuario solicitou comparativo anual inclusive de metas,
+devolucoes em dashboard, informacoes em portugues brasileiro e retirada da
+frase final do rodape. Implementacao na interface, sem alteracao de SQL/DW.
+
+- Filtro Anual seleciona janeiro a dezembro do ano informado; soma cada meta
+  mensal/unidade uma vez. Realizado e a soma das vendas concluidas registradas.
+- Quando ha registros em parte do ano e metas completas nos 12 meses, mostrar
+  realizado registrado / meta anual integral. Meses futuros/sem registros nao
+  bloqueiam o comparativo, nem viram prova de movimento zero ou de completude.
+  Sinalizar explicitamente a cobertura parcial; nao projetar nem ratear metas.
+- Periodo inteiro sem registros mantem atingimento nao aplicavel. Metas
+  ausentes/zero mantem as protecoes existentes; categoria ou mes parcial nao
+  habilitam meta sem grao/criterio de rateio aprovado.
+- Graficos apresentam realizado x meta por unidade, no grao anual ou mensal.
+  Devolucoes/cancelamentos possuem indicadores e graficos proprios, usando os
+  mesmos filtros e denominadores. A data continua sendo a da venda, nao uma
+  data de devolucao financeira inexistente na origem.
+- Rotulos, nomes visuais, datas, valores, eixos e dicas dos graficos em pt-BR.
+  Menus tecnicos de graficos ocultados; tabela simples sem barra em ingles.
+  Filtros de datas textuais DD/MM/AAAA e selecao de unidades/canais em portugues.
+  Rodape solicitado removido, sem retirar avisos de cobertura dos dados.
+
+## Interacao por clique — 28/10/2026
+
+- Clicar numa categoria aplica essa categoria ao painel. Unidades e periodo
+  vigentes permanecem; metas ficam indisponiveis conforme a regra existente.
+- Clicar numa barra de receita/meta por unidade seleciona a unidade, seu canal
+  e o periodo da barra, limitado ao intervalo ja escolhido. Em devolucoes por
+  unidade, muda somente unidade/canal. As selecoes combinam-se com a categoria.
+- Clicar num ponto das evolucoes de receita/devolucao restringe ao dia da venda,
+  inclusive saindo do modo anual. Nao representa data do evento de devolucao.
+- Filtros laterais acompanham os cliques. Limpar filtros restaura o mes da
+  ultima venda, todas as unidades/canais e todas as categorias. Selecao e local
+  a sessao do usuario; consultas continuam parametrizadas e somente leitura.
+- Pedidos por situacao permanece comparativo, sem filtro por status, para nao
+  alterar os denominadores das taxas. Cards e tabela tambem nao disparam filtro.
+- Verificacao local em 28/10: 28 testes focados aprovados em Python 3.12/Windows,
+  Streamlit 1.66.0 e Altair 6.3.0. Cliques reais no navegador: Leggings,
+  Barbacena + Leggings e 13/09/2026 conferidos com o DW. Deploy segue suspenso.
+
+## Apresentacao para deploy — 28/10/2026
+
+Pedido posterior remove o subtitulo INTELIGENCIA COMERCIAL / VISAO GERAL e o
+banner de previa local da interface. Unidade EC-BR passa a ser exibida como
+Ecommerce nos filtros, legendas, resumos e tabela, sem alterar o identificador.
+Cada grafico ocupa sua propria linha com a largura disponivel; cards mantem
+seus agrupamentos. Controles de acesso, regras analiticas e filtros por clique
+permanecem. Essa revisao visual nao publica a aplicacao.
+
+## Farol de alinhamento das cargas — 28/10/2026
+
+Regra explicita do usuario para esta etapa: considerar validado quando todas
+as fontes terminarem na mesma data. Substitui o aviso textual de completude;
+nao adota D-1 nem compara com a data final dos filtros.
+
+- Verde / Atualizada: todas as tres fontes esperadas presentes com a mesma
+  data final disponivel no DW, mesmo se for uma base historica.
+- Vermelho / Data final divergente: data anterior a mais recente do conjunto.
+- Amarelo / Aguardando demais cargas: data mais recente, mas outras fontes
+  divergentes ou sem data. Nenhuma fonte fica verde enquanto faltar alinhamento.
+- Cinza / Sem data disponivel: unidade esperada ausente ou sem registros.
+
+Data final e max(data_venda) da view privada bi.vw_vendas_diarias por unidade,
+sem filtro comercial. Inclui vendas de todas as situacoes, nao so concluidas.
+Esta e uma verificacao de alinhamento das datas dos dados disponiveis, nao de
+completude dos recibos nem de dias declarados sem movimento. Nao confundir a
+data de negocio com a hora da ultima execucao. Sem novos grants ou migrations.
+
+## Acesso publico ao portfolio — 28/10/2026
+
+Pedido posterior do usuario autoriza visitantes sem login a ler os indicadores
+do DW sintetico. O servidor exige `XFIT_DASHBOARD_PUBLIC=1` para esse modo;
+parametros de URL nao ativam acesso publico. Interface identifica os dados como
+demonstrativos. Credencial BI e TLS permanecem no servidor, views de leitura
+privadas e sem permissao de escrita/bases internas. Regras analiticas e filtros
+permanecem; apenas a exigencia de login dos visitantes foi substituida.

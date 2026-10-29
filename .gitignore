@@ -38,3 +38,36 @@ airflow/config/airflow.cfg
 /docs/CONTEXTO_ATUAL.md
 /docs/DECISOES.md
 /docs/memoria/
+**/secrets.toml
+/.streamlit/*.local.json
+/deploy/aws/*.crt
+/deploy/aws/secrets/
+/deploy/.artifacts/
+
+# Credenciais e identificadores locais de ferramentas de publicacao.
+**/.vercel/
+**/.aws/
+**/client_secret*.json
+**/credentials.json
+**/token.json
+**/secrets.*
+!**/secrets.toml.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+
+# Evidencias locais, resultados de auditoria e pacotes de implantacao.
+/docs/security/
+/deploy/aws/release.yaml
+/deploy/aws/public.yaml
+/deploy/aws/*pre-public*
+*.dump
+*.backup
