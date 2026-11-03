@@ -109,7 +109,13 @@ class IndicadoresDashboardLocalTest(unittest.TestCase):
             self.assertEqual(totais['ticket_medio'], 70)
             vazio = consultar_vendas(leitor, date(2020, 1, 1), date(2020, 1, 31), [], [])
             self.assertEqual(vazio, [])
-            with patch('dashboard.dados.conectar', return_value=nullcontext(leitor)):
+            with patch('dashboard.dados.conectar', return_value=nullcontext(leitor)), \
+                    patch('dashboard.dados.configuracao_banco', return_value={'host': 'fixture-sql'}):
+                from dashboard import dados
+                dados._carregar_contexto.clear()
+                dados._carregar_painel.clear()
+                self.addCleanup(dados._carregar_contexto.clear)
+                self.addCleanup(dados._carregar_painel.clear)
                 atualizacao, unidades, categorias = carregar_contexto()
                 self.assertEqual(atualizacao['ultima_data_venda'], date(2020, 1, 3))
                 self.assertEqual(len(unidades), 2)

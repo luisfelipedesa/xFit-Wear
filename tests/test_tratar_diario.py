@@ -80,6 +80,14 @@ class CenarioDiario:
             selecao[unidade] = resultado['manifesto']
         return diario.consolidar_dia(data or self.data, selecao, carga, self.raiz)
 
+    def individual(self, unidade, carga='individual', data=None, zeros=False):
+        self.receber(unidade, carga, [] if zeros else None, data)
+        resultado = self.tratar(unidade, carga, carga, data)
+        if resultado['status'] not in {'aprovado', 'reutilizado'}:
+            raise AssertionError(resultado)
+        return diario.consolidar_dia(data or self.data, {unidade: resultado['manifesto']},
+                                     carga + '-' + unidade, self.raiz, unidade=unidade)
+
 
 class TratamentoDiarioTest(unittest.TestCase):
     def setUp(self):
@@ -101,6 +109,27 @@ class TratamentoDiarioTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             diario.consolidar_dia(self.cenario.data, selecao, 'parcial', self.raiz)
         self.assertFalse((self.raiz / diario.BASE / 'publicacoes').exists())
+
+    def test_publicacao_individual_nao_exige_recebimentos_das_outras_unidades(self):
+        caminho = self.cenario.individual('barbacena')
+        publicacao, staging = diario.carregar_publicacao(caminho, self.raiz)
+        self.assertEqual(publicacao['unidade'], 'barbacena')
+        self.assertEqual(set(publicacao['selecao']), {'barbacena'})
+        self.assertEqual({v['unidade_id'] for v in staging['stg_vendas']}, {'LJ-BQ'})
+        self.assertEqual({v['data_venda'] for v in staging['stg_vendas']}, {self.cenario.data})
+
+    def test_publicacao_individual_nao_aceita_lote_de_outra_unidade_ou_nao_aprovado(self):
+        self.cenario.receber()
+        lote = self.cenario.tratar()['manifesto']
+        with self.assertRaises(ValueError):
+            diario.consolidar_dia(self.cenario.data, {'lafaiete': lote}, 'outra',
+                                 self.raiz, unidade='lafaiete')
+        documento = json.loads((self.raiz / lote).read_text())
+        documento['status'] = 'reprovado'
+        (self.raiz / lote).write_text(json.dumps(documento))
+        with self.assertRaises(ValueError):
+            diario.consolidar_dia(self.cenario.data, {'barbacena': lote}, 'reprovada',
+                                 self.raiz, unidade='barbacena')
 
     def test_td02_zero_explicito_sem_venda_artificial(self):
         self.cenario.receber(linhas=[])

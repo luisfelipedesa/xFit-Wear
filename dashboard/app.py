@@ -13,7 +13,7 @@ from dashboard import dados, demo
 from dashboard.atualizacao import avaliar_atualizacao
 from dashboard.interacao import limpar_filtros, periodo_do_grafico, renovar_graficos
 from dashboard.acesso import previa_local_permitida, usuario_permitido
-from dashboard.apresentacao import CANAIS, CATEGORIAS, UNIDADES, exibir_data, exibir_grafico, ler_data, nome_unidade
+from dashboard.apresentacao import CANAIS, CATEGORIAS, UNIDADES, apresentar_projeto_na_abertura, exibir_data, exibir_grafico, ler_data, nome_unidade
 from dashboard.metricas import agrupar, chaves_mensais, comparar_metas, formatar, meses_inteiros, periodo_padrao, resumir, resumir_metas
 
 
@@ -55,6 +55,8 @@ elif not modo_local:
         st.logout()
         st.stop()
 
+apresentar_projeto_na_abertura()
+
 try:
     atualizacao, unidades, categorias = demo.contexto() if modo_demo else dados.carregar_contexto()
 except (dados.ConfiguracaoInvalida, dados.psycopg.Error):
@@ -84,8 +86,11 @@ with st.expander('Cobertura e atualização', expanded=True):
     colunas = st.columns(3)
     colunas[0].write(f"Última venda: **{exibir_data(atualizacao['ultima_data_venda'])}**")
     colunas[1].write(f"Última carga bem-sucedida: **{exibir_data(atualizacao['ultima_execucao_sucesso'])}**")
-    colunas[2].write(f"Último dia publicado: **{exibir_data(atualizacao['ultima_data_diaria_publicada'])}**")
+    colunas[2].write(f"Último dia publicado em conjunto: **{exibir_data(atualizacao['ultima_data_diaria_publicada'])}**")
+    st.caption('Atualizações individuais preservam as datas de cada unidade, exibidas no farol acima. O histórico de publicação conjunta é mantido separadamente.')
     st.caption(f"Cargas sem conclusão: {atualizacao['cargas_sem_conclusao']} · Registros históricos de erro: {atualizacao['cargas_com_erro']}")
+    if not modo_demo:
+        st.caption('As consultas podem reutilizar dados por até 5 minutos. Após esse prazo, a próxima interação consulta o DW novamente.')
 
 inicio_padrao, fim_padrao = periodo_padrao(atualizacao['ultima_data_venda'])
 todos_canais = sorted({linha['canal'] for linha in unidades})
@@ -159,6 +164,8 @@ except (dados.ConfiguracaoInvalida, dados.psycopg.Error):
     st.stop()
 
 totais = resumir(vendas)
+vendas_por_data = agrupar(vendas, 'data_venda')
+vendas_por_unidade = agrupar(vendas, 'unidade_id')
 st.subheader('Resultado comercial')
 if not vendas:
     st.info('Sem registros no filtro. Isso não comprova ausência de movimento ou alimentação completa.')
@@ -202,7 +209,7 @@ else:
 st.subheader('Evolução diária · receita concluída')
 if vendas:
     serie = [{'Data': linha['data_venda'], 'valor': linha['receita_liquida_concluida']}
-             for linha in agrupar(vendas, 'data_venda')]
+             for linha in vendas_por_data]
     exibir_grafico(serie, 'Data', 'valor', 'Receita concluída (R$)', tipo='linha',
                    chave='grafico_receita_diaria',
                    filtros=[{'inicio': linha['Data'], 'fim': linha['Data']} for linha in serie])
@@ -229,7 +236,7 @@ if mix:
 
 st.subheader('Comparativo por unidade')
 linhas = []
-for linha in agrupar(vendas, 'unidade_id'):
+for linha in vendas_por_unidade:
     linhas.append({
         'Unidade': nomes.get(linha['unidade_id'], linha['unidade_id']),
         'Receita concluída': formatar(linha['receita_liquida_concluida'], prefixo='R$ '),
@@ -249,7 +256,7 @@ cards[0].metric('Pedidos cancelados', formatar(totais['pedidos_cancelados'], 0))
 cards[1].metric('Taxa de cancelamento', formatar(totais['taxa_cancelamento_pct'], sufixo='%'))
 st.subheader('Evolução das devoluções registradas')
 serie = [{'Data': linha['data_venda'], 'valor': linha['receita_devolvida_registrada']}
-         for linha in agrupar(vendas, 'data_venda')]
+         for linha in vendas_por_data]
 exibir_grafico(serie, 'Data', 'valor', 'Devoluções registradas (R$)', tipo='linha',
                chave='grafico_devolucoes_diarias',
                filtros=[{'inicio': linha['Data'], 'fim': linha['Data']} for linha in serie])
@@ -261,10 +268,10 @@ exibir_grafico(situacoes, 'Situação', 'valor', 'Pedidos')
 st.caption('Comparação entre situações no filtro atual. As taxas preservam seus denominadores.')
 st.subheader('Devoluções por unidade')
 quadro = [{'Unidade': nomes[linha['unidade_id']], 'valor': linha['receita_devolvida_registrada']}
-          for linha in agrupar(vendas, 'unidade_id')]
+          for linha in vendas_por_unidade]
 exibir_grafico(quadro, 'Unidade', 'valor', 'Devoluções registradas (R$)',
                chave='grafico_devolucoes_unidade',
-               filtros=[filtros_unidades[linha['unidade_id']] for linha in agrupar(vendas, 'unidade_id')])
+               filtros=[filtros_unidades[linha['unidade_id']] for linha in vendas_por_unidade])
 with st.expander('Como interpretar os indicadores'):
     st.write('Devoluções mantêm valores positivos da origem e seguem a data da venda, pois não há data própria do evento de devolução. Não representam estorno financeiro. Canceladas não entram nos indicadores de vendas concluídas.')
     st.write('Taxa de devolução: pedidos devolvidos divididos pela soma de concluídos e devolvidos. Taxa de cancelamento: pedidos cancelados divididos por todos os pedidos.')

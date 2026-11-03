@@ -254,3 +254,14 @@ parametros de URL nao ativam acesso publico. Interface identifica os dados como
 demonstrativos. Credencial BI e TLS permanecem no servidor, views de leitura
 privadas e sem permissao de escrita/bases internas. Regras analiticas e filtros
 permanecem; apenas a exigencia de login dos visitantes foi substituida.
+
+## Entrada unica com apresentacao — 02/11/2026
+
+Pagina inicial externa substituida por modal nativo no dashboard Streamlit.
+Apresentacao descreve o projeto, origem/tratamento, DW e indicadores, com aviso
+explicito de dados demonstrativos. E exibida uma vez por sessao Streamlit apos
+o controle de acesso. Botao Explorar dashboard, X, Esc ou clique externo fecham
+o modal; filtros, graficos e Limpar filtros nao reabrem a apresentacao.
+Nova aba ou recarga completa pode criar nova sessao e exibi-la novamente.
+Sem persistencia por visitante, cookies ou localStorage. As regras de indicadores,
+acesso publico/privado, cache e conexao BI continuam as existentes.

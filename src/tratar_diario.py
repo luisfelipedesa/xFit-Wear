@@ -1,4 +1,4 @@
-"""Tratamento de entregas confirmadas e selecao completa para publicacao diaria."""
+"""Tratamento de entregas confirmadas e aprovacao por unidade/data ou dia completo."""
 
 import argparse
 from collections import Counter
@@ -60,11 +60,12 @@ def gravar_json(caminho, documento):
 def bloquear_tratamento(unidade, raiz):
     destino = caminho_local(BASE / 'bloqueios' / (unidade + '.lock'), raiz)
     destino.parent.mkdir(parents=True, exist_ok=True)
-    with destino.open('x', encoding='utf-8'):
-        try:
+    arquivo = destino.open('x', encoding='utf-8')
+    try:
+        with arquivo:
             yield
-        finally:
-            destino.unlink()
+    finally:
+        destino.unlink()
 
 
 def carregar_referencias(raiz):
@@ -268,16 +269,19 @@ def tratar_unidade(unidade, data, carga_recebimento, carga_id, raiz=RAIZ):
     return {'status': manifesto['status'], 'manifesto': (pasta / 'manifesto.json').relative_to(raiz).as_posix()}
 
 
-def consolidar_dia(data, selecao, carga_id, raiz=RAIZ):
+def consolidar_dia(data, selecao, carga_id, raiz=RAIZ, unidade=None):
     validar_formato_id_carga(carga_id)
     conferir_data_referencia(data)
-    if set(selecao) != set(UNIDADES):
-        raise ValueError('Publicacao exige selecao explicita das tres unidades')
+    if unidade is not None and unidade not in UNIDADES:
+        raise ValueError('Unidade de publicacao desconhecida')
+    esperadas = {unidade} if unidade is not None else set(UNIDADES)
+    if set(selecao) != esperadas:
+        raise ValueError('Selecao de publicacao incompativel com o escopo solicitado')
     staging = {'stg_vendas': []}
     referencias = None
-    for unidade in UNIDADES:
-        manifesto, lote = ler_lote_aprovado(selecao[unidade], raiz)
-        if manifesto['unidade'] != unidade or manifesto['data_referencia'] != data:
+    for nome, caminho in selecao.items():
+        manifesto, lote = ler_lote_aprovado(caminho, raiz)
+        if manifesto['unidade'] != nome or manifesto['data_referencia'] != data:
             raise ValueError('Lote selecionado de outra unidade ou data')
         hashes = {fonte: ref['sha256'] for fonte, ref in manifesto['referencias'].items()}
         if referencias is not None and hashes != referencias:
@@ -291,6 +295,8 @@ def consolidar_dia(data, selecao, carga_id, raiz=RAIZ):
     pasta.mkdir(parents=True, exist_ok=False)
     publicacao = {'status': 'aprovado', 'data_referencia': data, 'carga_id': carga_id,
                   'versao': VERSAO, 'selecao': selecao, 'referencias': referencias}
+    if unidade is not None:
+        publicacao['unidade'] = unidade
     gravar_json(pasta / 'manifesto.json', publicacao)
     return (pasta / 'manifesto.json').relative_to(raiz).as_posix()
 
@@ -298,9 +304,13 @@ def consolidar_dia(data, selecao, carga_id, raiz=RAIZ):
 def carregar_publicacao(relativo, raiz=RAIZ):
     publicacao = ler_json_local(relativo, raiz)
     validar_formato_id_carga(publicacao['carga_id'])
+    unidade = publicacao.get('unidade')
+    if unidade is not None and unidade not in UNIDADES:
+        raise ValueError('Unidade de publicacao desconhecida')
+    esperadas = {unidade} if unidade is not None else set(UNIDADES)
     if (Path(relativo) != BASE / 'publicacoes' / publicacao['carga_id'] / 'manifesto.json'
             or publicacao['status'] != 'aprovado' or publicacao['versao'] != VERSAO
-            or set(publicacao['selecao']) != set(UNIDADES)):
+            or set(publicacao['selecao']) != esperadas):
         raise ValueError('Publicacao nao aprovada')
     staging = {'stg_vendas': []}
     for unidade, caminho in publicacao['selecao'].items():
@@ -321,13 +331,15 @@ def executar_cli():
     parser.add_argument('--unidade', choices=UNIDADES)
     parser.add_argument('--carga-recebimento')
     parser.add_argument('--selecao')
+    parser.add_argument('--aprovar-unidade', choices=UNIDADES)
     args = parser.parse_args()
     try:
         if args.unidade:
             resultado = tratar_unidade(args.unidade, args.data_referencia,
                                        args.carga_recebimento, args.carga_id)
         else:
-            caminho = consolidar_dia(args.data_referencia, json.loads(args.selecao), args.carga_id)
+            caminho = consolidar_dia(args.data_referencia, json.loads(args.selecao), args.carga_id,
+                                     unidade=args.aprovar_unidade)
             resultado = {'status': 'aprovado', 'manifesto': caminho}
     except (OSError, ValueError, KeyError, TypeError, AttributeError, ArithmeticError):
         print('Tratamento interrompido; conferir selecao e artefatos locais.')

@@ -27,6 +27,104 @@ LOCALE = {
 }
 
 
+@st.dialog('Conheça o projeto xFit Wear', width='large', on_dismiss='rerun')
+def apresentar_projeto():
+    st.markdown('### Do dado à decisão')
+    st.write('Um projeto de engenharia de dados e BI para uma operação demonstrativa '
+             'de roupas fitness, com lojas em Barbacena e Conselheiro Lafaiete e um canal de ecommerce.')
+    st.write('O objetivo é transformar entregas independentes em indicadores consistentes de vendas, '
+             'margem, pedidos, devoluções e metas, com rastreabilidade da origem ao dashboard.')
+    st.caption('Arquivos CSV/JSON → Data lake → Tratamento em Python → DW PostgreSQL/Supabase → Views BI → Streamlit')
+
+    with st.expander('01 · Por que usar o Airflow?', expanded=True):
+        st.write('Cada unidade alimenta o data lake individualmente. O Apache Airflow organiza os '
+                 'recebimentos e tratamentos em tarefas independentes, controla as dependências '
+                 'e registra o resultado de cada etapa. Se uma unidade não entregar o arquivo, '
+                 'o recebimento das outras não é cancelado.')
+        st.write('Cada unidade com uma entrega aprovada pode atualizar o DW, mesmo que outra '
+                 'não tenha alimentado o lake. A aprovação e a publicação são feitas por unidade '
+                 'e data: a ausência ou reprovação de um arquivo não impede o processamento '
+                 'dos arquivos válidos das demais unidades.')
+        st.markdown('**Continuidade da análise:** quem entregou dados válidos é atualizado; quem '
+                    'não entregou mantém no DW os últimos dados válidos que vieram do lake. '
+                    'O dashboard continua exibindo esse histórico, com as datas originais. '
+                    'Dados antigos não são copiados para o dia atual nem apresentados como novos. '
+                    'O farol mostra a última data disponível de cada unidade e evidencia a defasagem.')
+        st.caption('As DAGs são acionadas manualmente, com data de referência explícita. '
+                   'Essa proteção preserva os dados; a disponibilidade da tela também depende do servidor e do banco.')
+
+    with st.expander('02 · Como os arquivos são tratados e validados?'):
+        st.markdown('''
+**Recebimento rastreável.** Cada entrega declara unidade, data, quantidade de registros
+e hash SHA-256. O processo confere estrutura, localização autorizada, volume e conteúdo,
+preserva a cópia de origem e identifica a carga em um manifesto. Ausência de arquivo
+não é tratada como zero vendas: um dia sem movimento exige declaração explícita válida.
+Na carga histórica, a auditoria e o backup verificado antecedem a publicação.
+
+**Padronização em Python.** Vendas, produtos e metas são convertidos para um formato
+comum. Datas, horários, canais e status são validados; valores monetários usam Decimal
+para preservar precisão, e quantidades precisam ser inteiras e positivas.
+
+**Qualidade antes do DW.** São conferidos campos obrigatórios, unidade/data corretas,
+produtos cadastrados, metas por unidade/mês, duplicidades, consistência dos pedidos
+e coerência entre receita, custo e margem. Alterações de arquivo durante o processamento
+e divergências de hash ou volume bloqueiam a aprovação. Um erro reprova o lote da
+unidade/data inteiro; linhas inválidas não são descartadas silenciosamente.
+
+**Publicação protegida.** Somente o lote aprovado da unidade/data segue para a carga SQL,
+com reconciliação de conteúdo e totais e confirmação em transação. Falhas antes da
+confirmação desfazem as alterações no banco. Chaves únicas, relacionamentos e restrições
+SQL reforçam a integridade. A repetição de uma entrega idêntica não
+duplica vendas; conteúdo diferente para um dia já aprovado exige revisão, sem
+substituição ou exclusão automática do histórico.
+''')
+
+    with st.expander('03 · Modelo dimensional e schemas utilizados'):
+        st.write('O PostgreSQL/Supabase organiza o DW em um modelo dimensional em estrela, '
+                 'com dimensões compartilhadas entre as tabelas de fatos. O objetivo é facilitar '
+                 'os cruzamentos por data, produto e unidade, preservando o nível de detalhe de cada indicador.')
+        st.markdown('''
+| Tabela no schema `dw` | Papel e nível de detalhe |
+|---|---|
+| `dim_data` | Calendário para análises por dia, mês e ano. |
+| `dim_produto` | Cadastro e categoria dos produtos. |
+| `dim_unidade` | Lojas e ecommerce, com canal e localização. |
+| `fato_vendas` | Um registro por item vendido, ligado a data, produto e unidade. |
+| `fato_metas` | Uma meta por unidade/mês, ligada a data e unidade. |
+
+As vendas são agregadas por unidade/mês antes da comparação com metas, para que
+a mesma meta não seja multiplicada pela quantidade de itens vendidos.
+
+**Separação de responsabilidades:** `stg` recebe os dados padronizados; `etl`
+registra a execução e o estado das cargas; `dw` mantém dimensões e fatos;
+`bi` oferece views agregadas para o consumo do dashboard.
+''')
+
+    with st.expander('04 · Como o dashboard consome os dados com segurança?'):
+        st.write('O Streamlit consulta views privadas de BI, em vez de ler os arquivos do lake '
+                 'diretamente. As views centralizam os cálculos e entregam os agregados usados '
+                 'nos cards, gráficos e filtros. Consultas repetidas podem reutilizar resultados '
+                 'por até cinco minutos para reduzir acessos ao banco.')
+        st.write('A conexão usa TLS com validação do certificado e uma credencial exclusiva de '
+                 'leitura, sem acesso direto às tabelas internas ou permissão para alterar o DW. '
+                 'Os filtros usam parâmetros SQL. Senhas e arquivos operacionais ficam fora do '
+                 'código publicado; o visitante recebe os indicadores, não as credenciais do banco.')
+        st.caption('Hash verifica a correspondência do conteúdo; não comprova, sozinho, a autenticidade '
+                   'do remetente ou a completude do sistema de origem.')
+
+    st.info('Os dados são demonstrativos para portfólio. Não representam resultados de uma operação comercial real.')
+    st.caption('Explore os filtros laterais ou clique nos gráficos para combinar período, unidade e categoria.')
+    if st.button('Explorar dashboard', type='primary', key='fechar_apresentacao'):
+        st.rerun()
+
+
+def apresentar_projeto_na_abertura():
+    if not st.session_state.get('apresentacao_exibida', False):
+        # A marca pertence à sessão; filtros e fechamento do modal não o reabrem.
+        st.session_state['apresentacao_exibida'] = True
+        apresentar_projeto()
+
+
 def nome_unidade(linha):
     return UNIDADES.get(linha['unidade_id'], linha['unidade'])
 

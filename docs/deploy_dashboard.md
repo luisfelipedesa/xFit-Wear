@@ -1,14 +1,14 @@
-# Dashboard Streamlit: Vercel + AWS
+# Dashboard Streamlit na AWS
 
-Arquitetura escolhida pelo usuario em 18/10/2026. A Vercel publica somente `web/`;
-Streamlit executa continuamente em uma EC2 com Docker. O navegador acessa cada
-dominio diretamente, sem iframe ou proxy da Vercel. Supabase continua como DW.
+Entrada unica pelo dashboard Streamlit na EC2 com Docker. Em 02/11/2026, usuario
+pediu substituir a pagina inicial da Vercel por apresentacao em modal no dashboard.
+Os arquivos publicos de `web/` foram removidos; Supabase continua como DW.
 Airflow nao precisa ser instalado na EC2 do dashboard.
 
 **Publicacao autorizada pelo usuario em 28/10/2026, exclusivamente nos planos
 gratuitos e sem qualquer cobranca.** Essa ordem substitui a suspensao de 18/10.
 Nao fazer upgrade, contratar servicos ou consumir recursos fora das condicoes
-gratuitas confirmadas. Vercel Hobby, AWS Free plan e hostname gratuito sslip.io
+gratuitas confirmadas. AWS Free plan e hostname gratuito sslip.io
 foram confirmados/escolhidos nesta retomada. O Free plan AWS encerra o acesso
 quando o beneficio acaba; nao converter para plano pago para manter o site.
 Permissao para publicar nao dispensa validar HTTPS e configuracao efetiva.
@@ -121,8 +121,32 @@ execucao; dados ja enviados ao navegador nao podem ser recolhidos.
 
 Demo nao e bypass para dados reais: seleciona outro carregador, sem conexao BI.
 No Compose AWS, demo fica explicitamente desligado e portfolio publico ligado. Credencial de banco fica
-apenas no processo do servidor. SQL usa parametros para filtros; nao ha cache
-global de dados ou downloads de dados brutos implementados pela aplicacao.
+apenas no processo do servidor. SQL usa parametros para filtros; nao ha downloads
+de dados brutos implementados pela aplicacao.
+
+### Cache de consultas
+
+`dashboard/dados.py` usa `st.cache_data` somente em memoria, com TTL de 300
+segundos, ate oito entradas de contexto e 128 combinacoes do painel por processo.
+Data inicial/final, conjuntos de unidades/canais e categoria compoem a chave do
+painel. A configuracao BI inteira tambem participa do hash: mudar origem ou
+credencial nao reutiliza dados de outra configuracao. A configuracao e validada
+antes de cada acesso ao cache. Nao persistir o cache em disco.
+
+Resultados agregados sao compartilhados entre sessoes autorizadas a mesma base;
+o controle de acesso da tela roda antes de qualquer leitura, inclusive cache hit.
+Isso pressupoe o acesso uniforme atual as views BI; permissoes individuais por
+linha exigiriam rever a chave e o isolamento antes de adotar esse modelo.
+Conexoes continuam curtas, somente leitura, com TLS e papel restrito; nao sao
+guardadas no cache. Falhas nao viram resultados armazenados.
+
+Contexto e painel expiram independentemente; podem refletir instantes diferentes
+dentro da janela de cinco minutos. A proxima interacao apos expirar renova a
+respectiva entrada, sem atualizacao automatica de aba ociosa. Para invalidar tudo
+apos uma carga que precise aparecer imediatamente, reiniciar o processo do app.
+Limpar filtros nao limpa cache. Reinicio/redeploy tambem perde todo o cache.
+O limite e por quantidade de entradas, nao por bytes; conferir memoria real antes
+de ampliar o limite ou o historico. Nao ha promessa de ganho em consulta fria.
 
 ## 4. AWS EC2
 
@@ -170,23 +194,19 @@ repetir smoke tests. Para rollback, voltar ao SHA anterior aprovado e reconstrui
 nao alterar schema/dados para fazer rollback desta interface. Nenhum workflow
 faz deploy automatico/SSH nesta etapa.
 
-## 5. Vercel
+## 5. Apresentacao no dashboard
 
-No projeto ja conectado ao GitHub, configure:
+O modal nativo st.dialog explica o projeto, a origem dos dados, validacoes e
+indicadores. Abre uma vez por sessao Streamlit, depois do controle de acesso.
+Fechar pelo botao Explorar dashboard, X, Esc ou clique externo nao o reabre nos
+filtros seguintes. Nova aba ou recarga completa pode criar nova sessao e mostrar
+o modal novamente. Nao usa cookies, localStorage ou rastreamento de visitante.
 
-- Root Directory: `web` (nao a raiz do repositorio).
-- Framework Preset: Other; sem Install Command/Build Command; Output Directory: `.`.
-- Nao configure variaveis de banco, Supabase ou OIDC na Vercel para esta pagina.
-
-Antes do deploy, revise o diff e a allowlist de arquivos: nao publicar dados,
-backups, `.env`, secrets.toml ou registros operacionais. web/vercel.json define
-headers de seguranca; a pagina nao consulta banco nem carrega scripts terceiros.
-O link fica desabilitado enquanto a URL nao foi definida.
-
-Depois da AWS validada, preencha `window.XFIT_DASHBOARD_URL` em `web/config.js`
-somente com a URL HTTPS publica do dashboard, sem tokens/senhas/query secrets.
-Versione essa URL e publique a pagina. OIDC e cookies pertencem ao dominio AWS;
-autenticacao na pagina Vercel nao protege automaticamente o Streamlit.
+Em 02/11/2026, depois da validacao do modal no link AWS, o projeto Vercel
+`x-fit-wear` foi excluido. API confirmou DELETE 204 e projeto ausente (GET 404);
+o endereco antigo x-fit-wear.vercel.app retornou 404 apos propagacao.
+Artefatos privados locais da CLI permanecem ignorados; nao copiar credenciais
+para o dashboard. Nao existe mais etapa de build/deploy Vercel nesta arquitetura.
 
 ## 6. Smoke test obrigatorio antes de declarar deploy concluido
 
@@ -200,7 +220,8 @@ autenticacao na pagina Vercel nao protege automaticamente o Streamlit.
    1.138 pedidos e atingimento 74,53%, caso a base ainda seja a mesma referencia.
 6. Categoria desabilita meta; mes parcial tambem; filtro vazio e falha do banco
    exibem mensagem controlada, sem credenciais ou traceback no navegador.
-7. Mobile e desktop; pagina Vercel direciona ao dominio correto. Verificar headers
+7. Mobile e desktop; modal na primeira abertura, fechamento e filtros sem
+   reabertura. Nova sessao mostra a apresentacao. Verificar headers
    no ambiente real, nao apenas no servidor estatico local.
 8. Conferir memoria, tempo de resposta, custos, logs sanitizados e ausencia de
    arquivos privados na imagem/artefatos. Processo saudavel nao prova esses itens.
@@ -216,3 +237,19 @@ Nao fazer upgrade dos planos. O hostname AWS depende do IP publico atual;
 parar/iniciar a EC2 pode mudar esse IP e exige rever DNS/hostname e retorno OAuth.
 Segredos OAuth antigos sem uso devem ser removidos pelo usuario no Google Cloud,
 preservando o segredo substituto instalado. Nao reutilizar arquivos revogados.
+
+## Publicacao com modal — 02/11/2026
+
+Dashboard mantido no mesmo endereco AWS; imagem `xfit-dashboard:modal-20261102`,
+ID `a9072e71a18a8ab8e4ebceffaba07269366d8a3cd3c7b8e0895bd9327aa10a57`.
+Atualizacao de app.py, apresentacao.py e dados.py inclui o cache de cinco minutos
+implementado anteriormente. Dependencias e Compose de seguranca preservados.
+Imagem anterior `xfit-dashboard:public-20261028` mantida para rollback; fontes e
+override anteriores em `/home/ec2-user/xfit-modal-20261102/antes/`, com SHA-256
+verificado antes da troca. Proxy Caddy nao foi recriado.
+
+Verificacoes: 64 testes focados (48 aprovados, 16 opt-in ignorados), modal e
+fechamento em navegador, filtros sem reabertura, nova sessao com apresentacao,
+leitura de setembro no DW (receita R$ 151.494,38; 1.222 pedidos), health HTTPS 200,
+container nao root/read-only/cap_drop ALL. Sem carga, grants ou upgrade de planos.
+Pagina Vercel removida conforme descrito acima. Commit/push nao executados.

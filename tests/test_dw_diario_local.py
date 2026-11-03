@@ -45,6 +45,38 @@ class DWDiarioLocalTest(unittest.TestCase):
         self.assertEqual(self.resumo(), (3, 90))
         self.assertEqual(self.conexao.execute('select count(*) from etl.cargas_dw').fetchone(), (1,))
 
+    def test_unidades_atualizam_separadas_e_atrasada_preserva_ultima_data(self):
+        self.publicar(self.cenario.completo())
+        original = self.cenario.vendas
+
+        def novas(unidade='barbacena', data=None):
+            return [dict(v, id_venda=v['id_venda'] + '-novo') for v in original(unidade, data)]
+
+        with patch.object(self.cenario, 'vendas', side_effect=novas):
+            for unidade in ('barbacena', 'lafaiete'):
+                manifesto = self.cenario.individual(unidade, carga='novo-' + unidade, data='2020-01-03')
+                self.assertEqual(self.publicar(manifesto)['status'], 'sucesso')
+                self.assertEqual(self.publicar(manifesto)['status'], 'reutilizado')
+            self.assertEqual(self.resumo(), (5, 150))
+            self.assertEqual(str(self.conexao.execute(
+                "select max(d.data) from dw.fato_vendas v join dw.dim_data d using(data_id) "
+                "where unidade_id='EC-BR'").fetchone()[0]), '2020-01-02')
+            atrasado = self.cenario.individual('ecommerce', carga='atrasado', data='2020-01-03')
+        self.publicar(atrasado)
+        self.assertEqual(self.resumo(), (6, 180))
+        self.assertEqual(self.conexao.execute('select count(distinct data_id) from dw.fato_vendas').fetchone(), (2,))
+
+    def test_unidade_zero_e_falha_nao_apagam_vendas_de_outras_unidades(self):
+        self.publicar(self.cenario.completo())
+        zero = self.cenario.individual('barbacena', carga='zero-bq', data='2020-01-03', zeros=True)
+        self.publicar(zero)
+        self.assertEqual(self.resumo(), (3, 90))
+        publicacao, staging = tratamento.carregar_publicacao(zero, self.raiz)
+        with self.assertRaisesRegex(ValueError, 'omite itens'):
+            with self.conexao.transaction():
+                diario.transferir_dia(self.conexao.cursor(), staging, self.cenario.data, unidades=['LJ-BQ'])
+        self.assertEqual(self.resumo(), (3, 90))
+
     def test_data_nova_preserva_historico_e_pedido_conflitante_bloqueia(self):
         self.publicar(self.cenario.completo())
         original = self.cenario.vendas

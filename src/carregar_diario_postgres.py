@@ -11,7 +11,7 @@ from psycopg import sql
 from carregar_postgres import (
     CHAVES_STAGING, certificado_postgres, configuracao_postgres, executar_carga_postgres,
 )
-from tratar_diario import RAIZ, assinatura, carregar_publicacao, ler_lote_aprovado
+from tratar_diario import RAIZ, UNIDADES, assinatura, carregar_publicacao, ler_lote_aprovado
 
 
 def conferir_diferencas(cursor, consulta, mensagem):
@@ -20,7 +20,13 @@ def conferir_diferencas(cursor, consulta, mensagem):
         raise ValueError(mensagem)
 
 
-def transferir_dia(cursor, staging, data, somente_conferir=False):
+def transferir_dia(cursor, staging, data, somente_conferir=False, unidades=None):
+    if unidades is not None:
+        if not unidades or not set(unidades) <= {valor[0] for valor in UNIDADES.values()}:
+            raise ValueError('Escopo de unidades invalido')
+        if any(venda['unidade_id'] not in unidades or str(venda['data_venda']) != data
+               for venda in staging['stg_vendas']):
+            raise ValueError('Venda fora do escopo da publicacao')
     for tabela, chaves in CHAVES_STAGING.items():
         linhas = staging[tabela]
         destino = sql.Identifier('stg', tabela)
@@ -59,10 +65,13 @@ def transferir_dia(cursor, staging, data, somente_conferir=False):
                  origem=valores_origem, dest=valores_destino),
             'revisao_necessaria: dados existentes divergem do lote aprovado')
         if tabela == 'stg_vendas':
+            escopo = sql.SQL('and s.unidade_id = any(%s) ') if unidades is not None else sql.SQL('')
             cursor.execute(sql.SQL(
                 'select exists (select 1 from {destino} s where s.data_venda = %s '
+                '{escopo}'
                 'and not exists (select 1 from {temp} t where {juncao}))'
-            ).format(destino=destino, temp=temporaria, juncao=juncao), (data,))
+            ).format(destino=destino, temp=temporaria, juncao=juncao, escopo=escopo),
+                (data, unidades) if unidades is not None else (data,))
             if cursor.fetchone()[0]:
                 raise ValueError('revisao_necessaria: nova entrega omite itens existentes')
             cursor.execute(sql.SQL(
@@ -86,6 +95,9 @@ def publicar_diario(conexao, manifesto, raiz=RAIZ):
     identidades = {unidade: ler_lote_aprovado(caminho, raiz)[0]['identidade']
                    for unidade, caminho in publicacao['selecao'].items()}
     carga_id = 'diario-' + publicacao['data_referencia'].replace('-', '')
+    unidade = publicacao.get('unidade')
+    if unidade is not None:
+        carga_id += '-' + unidade
     identidade_origem = assinatura(json.dumps([publicacao['data_referencia'], identidades],
                                              sort_keys=True).encode())
 
@@ -93,7 +105,8 @@ def publicar_diario(conexao, manifesto, raiz=RAIZ):
         return staging, {'linhas': {tabela: len(linhas) for tabela, linhas in staging.items()}}
 
     def transferir(cursor, dados, somente_conferir=False):
-        transferir_dia(cursor, dados, publicacao['data_referencia'], somente_conferir)
+        unidades = [UNIDADES[unidade][0]] if unidade is not None else None
+        transferir_dia(cursor, dados, publicacao['data_referencia'], somente_conferir, unidades)
 
     return executar_carga_postgres(conexao, carga_id, preparar=preparar,
                                    transferir=transferir, reutilizar=True,

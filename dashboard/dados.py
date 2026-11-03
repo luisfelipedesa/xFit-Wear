@@ -6,6 +6,10 @@ from pathlib import Path
 
 import psycopg
 from psycopg.rows import dict_row
+from streamlit import cache_data
+
+
+CACHE_TTL_SEGUNDOS = 300
 
 
 class ConfiguracaoInvalida(ValueError):
@@ -25,15 +29,23 @@ def configuracao_banco():
 
 
 @contextmanager
-def conectar():
-    with psycopg.connect(**configuracao_banco(), row_factory=dict_row) as conexao:
+def conectar(config=None):
+    if config is None:
+        config = configuracao_banco()
+    with psycopg.connect(**config, row_factory=dict_row) as conexao:
         conexao.execute('set transaction read only')
         conexao.execute('set local role xfit_dashboard')
         yield conexao
 
 
 def carregar_contexto():
-    with conectar() as conexao:
+    # Valida a configuração mesmo em cache hit; a chave inclui a origem e a credencial.
+    return _carregar_contexto(configuracao_banco())
+
+
+@cache_data(ttl=CACHE_TTL_SEGUNDOS, max_entries=8, show_spinner=False)
+def _carregar_contexto(config):
+    with conectar(config) as conexao:
         atualizacao = conexao.execute('select * from bi.vw_atualizacao').fetchone()
         unidades = conexao.execute(
             'with unidades as ('
@@ -63,7 +75,14 @@ def consultar_vendas(conexao, inicio, fim, unidades, canais, categoria=None):
 
 
 def carregar_painel(inicio, fim, unidades, canais, categoria=None):
-    with conectar() as conexao:
+    # ANY trata seleções como conjuntos; a ordem dos cliques não cria outra entrada.
+    return _carregar_painel(configuracao_banco(), inicio, fim,
+                           sorted(set(unidades)), sorted(set(canais)), categoria)
+
+
+@cache_data(ttl=CACHE_TTL_SEGUNDOS, max_entries=128, show_spinner=False)
+def _carregar_painel(config, inicio, fim, unidades, canais, categoria):
+    with conectar(config) as conexao:
         vendas = consultar_vendas(conexao, inicio, fim, unidades, canais, categoria)
         mix = conexao.execute(
             'select categoria, sum(receita_liquida_concluida) as receita_liquida_concluida '

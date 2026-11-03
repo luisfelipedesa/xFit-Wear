@@ -1,4 +1,4 @@
-name: Supabase - disponibilidade a cada 5 dias
+name: Supabase - disponibilidade diaria
 
 "on":
   schedule:
@@ -20,18 +20,16 @@ jobs:
       SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
       EVENTO: ${{ github.event_name }}
     steps:
-      - name: Consultar banco somente na data prevista ou no disparo manual
+      - name: Consultar banco e registrar disponibilidade
         shell: bash
         run: |
           python3 - <<'PY'
-          from datetime import date, datetime, timezone
+          from datetime import datetime, timezone
           import os
+          import socket
+          import ssl
           import urllib.error
           import urllib.request
-
-          def deve_consultar(data, evento):
-              dias = (data - date(2026, 10, 18)).days
-              return evento == 'workflow_dispatch' or (dias >= 0 and dias % 5 == 0)
 
           class SemRedirecionamento(urllib.request.HTTPRedirectHandler):
               def redirect_request(self, request, response, code, message, headers, newurl):
@@ -46,21 +44,56 @@ jobs:
                   headers={'apikey': chave, 'Content-Type': 'application/json'})
               cliente = urllib.request.build_opener(SemRedirecionamento())
               with cliente.open(request, timeout=20) as resposta:
-                  if resposta.status != 200 or resposta.read(64).strip() != b'1':
-                      raise ValueError('Consulta nao retornou o resultado esperado')
+                  if resposta.status != 200:
+                      raise urllib.error.HTTPError(url, resposta.status, '', {}, None)
+                  if resposta.read(64).strip() != b'1':
+                      raise RuntimeError('Resposta da RPC diferente de 1')
 
           def main():
-              hoje = datetime.now(timezone.utc).date()
-              if not deve_consultar(hoje, os.environ.get('EVENTO', '')):
-                  print('Fora do intervalo de cinco dias; nenhuma chamada ao Supabase.')
-                  return 0
+              instante = datetime.now(timezone.utc).isoformat(timespec='seconds')
+              evento = os.environ.get('EVENTO', '')
+              if evento not in ('schedule', 'workflow_dispatch'):
+                  evento = 'outro'
+              print(f'Inicio da consulta SQL de disponibilidade: {instante}; evento={evento}.')
               try:
                   consultar_supabase(os.environ.get('SUPABASE_URL', ''),
                                      os.environ.get('SUPABASE_PUBLISHABLE_KEY', ''))
-              except (ValueError, OSError, urllib.error.URLError):
-                  print('Falha na consulta de disponibilidade; revisar projeto, RPC e variavel publicavel.')
+              except urllib.error.HTTPError as erro:
+                  orientacoes = {
+                      401: 'Revisar a chave publicavel na variavel SUPABASE_PUBLISHABLE_KEY do GitHub.',
+                      403: 'Revisar permissoes de EXECUTE da RPC para anon e configuracao de acesso.',
+                      404: 'Verificar disponibilidade do projeto e existencia/exposicao da RPC.',
+                      429: 'Limite de requisicoes atingido; verificar uso e limites do projeto.',
+                  }
+                  if 300 <= erro.code < 400:
+                      orientacao = 'Redirecionamento bloqueado; revisar o endpoint HTTPS sem seguir redirecionamento.'
+                  elif erro.code >= 500:
+                      orientacao = 'Servico indisponivel; verificar se o projeto esta pausado, restaurando ou com falha.'
+                  else:
+                      orientacao = orientacoes.get(erro.code, 'Revisar resposta HTTP e disponibilidade da API no Supabase.')
+                  print(f'::error::Falha HTTP {erro.code}. {orientacao}')
+                  erro.close()
                   return 1
-              print('Consulta SQL de disponibilidade aprovada; nenhum dado de negocio foi acessado.')
+              except ValueError:
+                  print('::error::Falha de configuracao: exigir URL HTTPS exata do projeto e chave sb_publishable_ valida na variavel do GitHub.')
+                  return 1
+              except RuntimeError:
+                  print('::error::Falha de resposta: HTTP 200, mas a RPC nao retornou o inteiro 1. Revisar a funcao verificar_disponibilidade_xfit.')
+                  return 1
+              except (OSError, urllib.error.URLError) as erro:
+                  motivo = getattr(erro, 'reason', erro)
+                  if isinstance(motivo, TimeoutError):
+                      orientacao = 'Limite de tempo excedido; verificar disponibilidade e rede.'
+                  elif isinstance(motivo, ssl.SSLError):
+                      orientacao = 'Falha TLS; verificar certificado e conexao HTTPS.'
+                  elif isinstance(motivo, socket.gaierror):
+                      orientacao = 'Falha DNS; verificar resolucao do endereco do projeto.'
+                  else:
+                      orientacao = 'Falha de rede; verificar conectividade e disponibilidade do projeto.'
+                  # Nao imprimir excecao, corpo ou headers: podem conter credenciais.
+                  print(f'::error::{orientacao}')
+                  return 1
+              print('Consulta SQL de disponibilidade aprovada: HTTP 200; RPC retornou 1. Nenhum dado de negocio foi acessado.')
               return 0
 
           if __name__ == '__main__':

@@ -4,6 +4,14 @@ Projeto de Engenharia de Dados e BI para uma operação comercial de roupas fitn
 
 Para apresentação pública de portfólio, o repositório utiliza dados demonstrativos e sem identificação real de clientes, preservando privacidade e confidencialidade. A documentação, o desenho técnico e os critérios de operação tratam o projeto como uma entrega real: fontes brutas, manifestos, backups, logs, variáveis locais e artefatos de DW ficam fora do Git.
 
+## Dashboard
+
+Acesse diretamente o [dashboard xFit Wear](https://xfit.3.133.147.43.sslip.io/).
+A apresentação do projeto aparece em um modal na primeira abertura de cada
+sessão. Feche pelo botão **Explorar dashboard**, pelo X ou pela tecla Esc;
+alterar filtros não reabre a apresentação. Uma nova sessão ou recarga completa
+da página pode exibi-la novamente. Não é necessário passar por uma página inicial.
+
 ## Objetivo
 
 Demonstrar competências práticas de dados em um cenário comercial:

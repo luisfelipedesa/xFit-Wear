@@ -228,6 +228,57 @@ class AtualizacaoDashboardTest(unittest.TestCase):
 
 @unittest.skipIf(AppTest is None, 'Instale dashboard/requirements.txt para testar a interface')
 class InterfaceDashboardTest(unittest.TestCase):
+    def test_apresentacao_abre_uma_vez_por_sessao_e_fecha_pelo_botao(self):
+        app = self.executar_demo()
+        self.assertTrue(app.session_state['apresentacao_exibida'])
+        self.assertEqual(len(app.get('dialog')), 1)
+        self.assertTrue(any('dados são demonstrativos' in aviso.value for aviso in app.info))
+        with patch.dict(os.environ, {'XFIT_DASHBOARD_DEMO': '1'}):
+            app.button('fechar_apresentacao').click().run()
+            self.assertFalse(app.exception)
+            self.assertFalse(any(botao.key == 'fechar_apresentacao' for botao in app.button))
+            app.radio('categoria').set_value('Camisetas').run()
+            app.button('limpar_filtros').click().run()
+        self.assertFalse(app.exception)
+        self.assertFalse(any(botao.key == 'fechar_apresentacao' for botao in app.button))
+        nova_sessao = self.executar_demo()
+        self.assertTrue(any(botao.key == 'fechar_apresentacao' for botao in nova_sessao.button))
+
+    def test_reexecucao_reutiliza_consultas_e_agrupa_cada_dimensao_uma_vez(self):
+        from dashboard import metricas
+
+        atualizacao, unidades, categorias = demo.contexto()
+        inicio, fim = periodo_padrao(atualizacao['ultima_data_venda'])
+        vendas, mix, mensais = demo.carregar(
+            inicio, fim, [linha['unidade_id'] for linha in unidades],
+            sorted({linha['canal'] for linha in unidades}), None)
+        conexao = MagicMock()
+        conexao.execute.return_value.fetchone.return_value = atualizacao
+        conexao.execute.return_value.fetchall.side_effect = [
+            unidades, [{'categoria': categoria} for categoria in categorias], vendas, mix, mensais]
+        ambiente = {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_PUBLIC': '1',
+                    'XFIT_DASHBOARD_LOCAL_DW': '0'}
+        dados._carregar_contexto.clear()
+        dados._carregar_painel.clear()
+        self.addCleanup(dados._carregar_contexto.clear)
+        self.addCleanup(dados._carregar_painel.clear)
+        with patch.dict(os.environ, ambiente), \
+                patch.object(dados, 'configuracao_banco', return_value={'host': 'fixture-interface'}), \
+                patch.object(dados, 'conectar') as conectar, \
+                patch.object(metricas, 'agrupar', wraps=metricas.agrupar) as agrupar_vendas:
+            conectar.return_value.__enter__.return_value = conexao
+            app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'dashboard/app.py')).run(timeout=30)
+            self.assertFalse(app.exception)
+            self.assertEqual(conexao.execute.call_count, 6)
+            self.assertEqual(agrupar_vendas.call_count, 2)
+            cards = {card.label: card.value for card in app.metric}
+            app.run()
+            self.assertFalse(app.exception)
+            self.assertEqual(conexao.execute.call_count, 6)
+            self.assertEqual(conectar.call_count, 2)
+            self.assertEqual(agrupar_vendas.call_count, 4)
+            self.assertEqual({card.label: card.value for card in app.metric}, cards)
+
     def test_erro_inesperado_nao_expoe_mensagem_interna_ou_traceback(self):
         with redirect_stderr(io.StringIO()), patch.dict(os.environ, {'XFIT_DASHBOARD_DEMO': '1', 'XFIT_DASHBOARD_LOCAL_DW': '0'}), patch.object(demo, 'contexto', side_effect=RuntimeError('DETALHE_INTERNO_DE_TESTE')):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'dashboard/app.py')).run(timeout=30)

@@ -1,7 +1,13 @@
-from datetime import date, timedelta
+from contextlib import redirect_stdout
+from datetime import datetime, timezone
+import io
+import os
 from pathlib import Path
 import textwrap
 import unittest
+import socket
+import ssl
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 
@@ -15,15 +21,58 @@ class DisponibilidadeSupabaseTest(unittest.TestCase):
         cls.modulo = {'__name__': 'workflow_disponibilidade'}
         exec(compile(cls.codigo, '<workflow_disponibilidade>', 'exec'), cls.modulo)
 
-    def test_intervalo_exato_de_cinco_dias_inclusive_virada_de_mes(self):
-        inicio = date(2026, 10, 18)
-        dias = [inicio + timedelta(days=indice) for indice in range(400)]
-        selecionados = [dia for dia in dias if self.modulo['deve_consultar'](dia, 'schedule')]
-        self.assertTrue(all((depois - antes).days == 5 for antes, depois in zip(selecionados, selecionados[1:])))
-        self.assertFalse(self.modulo['deve_consultar'](inicio - timedelta(days=1), 'schedule'))
+    def executar_main(self, consulta, evento='schedule', relogio=None):
+        ambiente = {'SUPABASE_URL': 'https://hnjeknbdgvkzfdwrupau.supabase.co',
+                    'SUPABASE_PUBLISHABLE_KEY': 'sb_publishable_NAO_EXIBIR', 'EVENTO': evento}
+        saida = io.StringIO()
+        substituicoes = {'consultar_supabase': consulta}
+        if relogio is not None:
+            substituicoes['datetime'] = relogio
+        with patch.dict(self.modulo, substituicoes), patch.dict(os.environ, ambiente, clear=True), redirect_stdout(saida):
+            resultado = self.modulo['main']()
+        return resultado, saida.getvalue()
 
-    def test_manual_independe_do_intervalo(self):
-        self.assertTrue(self.modulo['deve_consultar'](date(2026, 10, 19), 'workflow_dispatch'))
+    def test_toda_execucao_consulta_inclusive_dias_antes_ignorados(self):
+        for evento in ('schedule', 'workflow_dispatch'):
+            for dia in ('2026-10-19', '2026-10-31', '2026-11-01', '2026-11-02'):
+                with self.subTest(evento=evento, dia=dia):
+                    relogio = MagicMock()
+                    relogio.now.return_value = datetime.fromisoformat(dia).replace(tzinfo=timezone.utc)
+                    consultar = MagicMock()
+                    resultado, saida = self.executar_main(consultar, evento, relogio)
+                    self.assertEqual(resultado, 0)
+                    consultar.assert_called_once()
+                    self.assertIn('HTTP 200', saida)
+                    self.assertNotIn('sb_publishable_NAO_EXIBIR', saida)
+
+    def test_logs_distinguem_status_http_sem_expor_corpo_ou_chave(self):
+        for status, orientacao in ((401, 'chave'), (403, 'permiss'), (404, 'RPC'),
+                                   (429, 'limite'), (503, 'pausado'), (302, 'redirecionamento')):
+            with self.subTest(status=status):
+                erro = urllib.error.HTTPError('https://NAO_EXIBIR', status, 'NAO_EXIBIR', {}, io.BytesIO(b'NAO_EXIBIR'))
+                resultado, saida = self.executar_main(MagicMock(side_effect=erro))
+                self.assertEqual(resultado, 1)
+                self.assertIn('::error::', saida)
+                self.assertIn(f'HTTP {status}', saida)
+                self.assertIn(orientacao, saida)
+                self.assertNotIn('NAO_EXIBIR', saida)
+
+    def test_logs_distinguem_rede_tls_dns_timeout_e_resposta_invalida(self):
+        casos = [(urllib.error.URLError(socket.gaierror('NAO_EXIBIR')), 'DNS'),
+                 (urllib.error.URLError(ssl.SSLError('NAO_EXIBIR')), 'TLS'),
+                 (urllib.error.URLError(TimeoutError('NAO_EXIBIR')), 'tempo'),
+                 (TimeoutError('NAO_EXIBIR'), 'tempo'),
+                 (urllib.error.URLError(OSError('NAO_EXIBIR')), 'rede'),
+                 (OSError('NAO_EXIBIR'), 'rede'),
+                 (ValueError('NAO_EXIBIR'), 'configuracao'),
+                 (RuntimeError('NAO_EXIBIR'), 'resposta')]
+        for erro, orientacao in casos:
+            with self.subTest(erro=type(erro).__name__, orientacao=orientacao):
+                resultado, saida = self.executar_main(MagicMock(side_effect=erro))
+                self.assertEqual(resultado, 1)
+                self.assertIn('::error::', saida)
+                self.assertIn(orientacao, saida)
+                self.assertNotIn('NAO_EXIBIR', saida)
 
     def test_apenas_chave_publicavel_e_destino_exato(self):
         for url, chave in [('https://outro.example', 'sb_publishable_teste'),
@@ -43,7 +92,7 @@ class DisponibilidadeSupabaseTest(unittest.TestCase):
             self.assertEqual(request.data, b'{}')
             self.assertEqual(cliente.open.call_args.kwargs['timeout'], 20)
             resposta.read.return_value = b'0'
-            with self.assertRaises(ValueError):
+            with self.assertRaises(RuntimeError):
                 self.modulo['consultar_supabase']('https://hnjeknbdgvkzfdwrupau.supabase.co', 'sb_publishable_teste')
         self.assertIsNone(self.modulo['SemRedirecionamento']().redirect_request(None, None, 302, '', {}, 'https://outro.example'))
 
