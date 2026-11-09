@@ -122,12 +122,15 @@ usar copias ja confirmadas, preencher os identificadores explicitamente, por exe
 Unidades omitidas desse mapa sao recebidas do inbox. O mapa permite completar
 um dia atrasado sem escolher automaticamente a entrega mais recente.
 
-Fluxo: identificar carga -> tres ramos receber/tratar -> aprovar dia -> publicar.
-Uma falha nao cancela os outros recebimentos/tratamentos. A barreira e a publicacao
-usam `all_success`: nenhuma unidade ausente, reprovada ou em revisao libera o DW.
+Fluxo: identificar carga -> tres ramos receber/tratar -> publicar unidades aprovadas.
+Desde 02/11/2026, a publicacao usa `all_done` para processar os lotes aprovados
+mesmo com ausencia/falha em outro ramo. Cada unidade tem manifesto, identidade
+de carga e transacao proprios. A escrita e sequencial para respeitar o lock global.
+Falha em uma publicacao nao impede tentar as demais; o resumo sinaliza pendencias
+com falha da tarefa/DAG. Unidades sem entrega valida mantem seu historico no DW.
 
 `publicar_dw=false` executa recebimento, tratamento e aprovacao local, mas nao
-abre conexao PostgreSQL. `true` conecta com papel restrito/TLS e publica o conjunto
+abre conexao PostgreSQL. `true` conecta com papel restrito/TLS e publica cada lote
 aprovado; nao reabre os arquivos historicos. A DAG inicia pausada, sem schedule e
 sem retries. Despausar no painel quando for executar; nao habilitar carga remota
 antes de corrigir/verificar a configuracao local de conexao.
@@ -141,9 +144,11 @@ O executor diario faz COPY parametrizado, verifica precisao/conteudo, preserva o
 historico e usa as mesmas transacoes/locks da carga existente. Nao atualiza dados
 de negocio existentes divergentes nem transforma omissoes em DELETE. Referencias
 alteradas ou uma nova identidade para data ja publicada exigem revisao.
-`etl.cargas_dw` registra `dw-diario-YYYYMMDD` e a identidade do conteudo em
+`etl.cargas_dw` registra `dw-diario-YYYYMMDD-<unidade>` e a identidade do conteudo em
 `carga_origem_id`. Repetir sucesso reconcilia staging/DW antes de retornar reutilizado.
-Dias com tres declaracoes de zero tambem sao registrados, sem venda artificial.
+Zero declarado valido tambem pode ser publicado por unidade, sem venda artificial.
+Publicacoes conjuntas antigas `dw-diario-YYYYMMDD` continuam compativeis. Entrega
+atrasada preserva a data original e pode complementar o dia sem duplicar outras unidades.
 
 Falha confirmada ou conexao perdida nao autoriza limpar/repetir a publicacao:
 reconciliar primeiro o registro da data, manifestos e DW. Um arquivo `.lock`

@@ -254,14 +254,16 @@ class InterfaceDashboardTest(unittest.TestCase):
             sorted({linha['canal'] for linha in unidades}), None)
         conexao = MagicMock()
         conexao.execute.return_value.fetchone.return_value = atualizacao
+        por_categoria = [dict(linha, categoria=nome) for nome in categorias
+                         for linha in demo.carregar(inicio, fim,
+                             [u['unidade_id'] for u in unidades],
+                             sorted({u['canal'] for u in unidades}), nome)[0]]
         conexao.execute.return_value.fetchall.side_effect = [
-            unidades, [{'categoria': categoria} for categoria in categorias], vendas, mix, mensais]
+            vendas, por_categoria, mensais]
         ambiente = {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_PUBLIC': '1',
                     'XFIT_DASHBOARD_LOCAL_DW': '0'}
-        dados._carregar_contexto.clear()
-        dados._carregar_painel.clear()
-        self.addCleanup(dados._carregar_contexto.clear)
-        self.addCleanup(dados._carregar_painel.clear)
+        dados._carregar_base.clear()
+        self.addCleanup(dados._carregar_base.clear)
         with patch.dict(os.environ, ambiente), \
                 patch.object(dados, 'configuracao_banco', return_value={'host': 'fixture-interface'}), \
                 patch.object(dados, 'conectar') as conectar, \
@@ -269,15 +271,22 @@ class InterfaceDashboardTest(unittest.TestCase):
             conectar.return_value.__enter__.return_value = conexao
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'dashboard/app.py')).run(timeout=30)
             self.assertFalse(app.exception)
-            self.assertEqual(conexao.execute.call_count, 6)
+            self.assertEqual(conexao.execute.call_count, 4)
             self.assertEqual(agrupar_vendas.call_count, 2)
             cards = {card.label: card.value for card in app.metric}
             app.run()
             self.assertFalse(app.exception)
-            self.assertEqual(conexao.execute.call_count, 6)
-            self.assertEqual(conectar.call_count, 2)
+            self.assertEqual(conexao.execute.call_count, 4)
+            self.assertEqual(conectar.call_count, 1)
             self.assertEqual(agrupar_vendas.call_count, 4)
             self.assertEqual({card.label: card.value for card in app.metric}, cards)
+            app.radio('categoria').set_value('Camisetas').run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.metric[0].value, 'R$ 8.060,00')
+            app.button('limpar_filtros').click().run()
+            self.assertEqual({card.label: card.value for card in app.metric}, cards)
+            self.assertEqual(conexao.execute.call_count, 4)
+            self.assertEqual(conectar.call_count, 1)
 
     def test_erro_inesperado_nao_expoe_mensagem_interna_ou_traceback(self):
         with redirect_stderr(io.StringIO()), patch.dict(os.environ, {'XFIT_DASHBOARD_DEMO': '1', 'XFIT_DASHBOARD_LOCAL_DW': '0'}), patch.object(demo, 'contexto', side_effect=RuntimeError('DETALHE_INTERNO_DE_TESTE')):
@@ -378,7 +387,7 @@ class InterfaceDashboardTest(unittest.TestCase):
         self.assertTrue(any('DD/MM/AAAA' in mensagem.value for mensagem in app.info))
 
     def test_sem_login_configurado_nao_consulta_dw(self):
-        with patch.dict(os.environ, {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_PUBLIC': '0'}), patch.object(dados, 'carregar_contexto', side_effect=AssertionError('Consulta antes de autorizar')):
+        with patch.dict(os.environ, {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_PUBLIC': '0'}), patch.object(dados, 'carregar_base', side_effect=AssertionError('Consulta antes de autorizar')):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'dashboard/app.py')).run(timeout=30)
         self.assertFalse(app.exception)
         self.assertEqual(len(app.metric), 0)
@@ -386,7 +395,7 @@ class InterfaceDashboardTest(unittest.TestCase):
 
     def test_portfolio_publico_exibe_indicadores_sem_login(self):
         ambiente = {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_PUBLIC': '1', 'XFIT_DASHBOARD_LOCAL_DW': '0'}
-        with patch.dict(os.environ, ambiente), patch.object(dados, 'carregar_contexto', side_effect=demo.contexto), patch.object(dados, 'carregar_painel', side_effect=demo.carregar):
+        with patch.dict(os.environ, ambiente), patch.object(dados, 'carregar_base', return_value={'contexto': demo.contexto()}), patch.object(dados, 'filtrar_painel', side_effect=lambda base, *args: demo.carregar(*args)):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'dashboard/app.py')).run(timeout=30)
         self.assertFalse(app.exception)
         self.assertEqual(app.metric[0].value, 'R$ 16.120,00')
@@ -395,7 +404,7 @@ class InterfaceDashboardTest(unittest.TestCase):
 
     def test_portfolio_publico_nao_expoe_erro_do_banco(self):
         ambiente = {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_PUBLIC': '1', 'XFIT_DASHBOARD_LOCAL_DW': '0'}
-        with patch.dict(os.environ, ambiente), patch.object(dados, 'carregar_contexto', side_effect=dados.psycopg.OperationalError('SENHA_INTERNA_DE_TESTE')):
+        with patch.dict(os.environ, ambiente), patch.object(dados, 'carregar_base', side_effect=dados.psycopg.OperationalError('SENHA_INTERNA_DE_TESTE')):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'dashboard/app.py')).run(timeout=30)
         self.assertFalse(app.exception)
         self.assertEqual(len(app.metric), 0)
@@ -403,7 +412,7 @@ class InterfaceDashboardTest(unittest.TestCase):
         self.assertFalse(any('SENHA_INTERNA_DE_TESTE' in erro.value for erro in app.error))
 
     def test_previa_local_nao_expoe_dw_em_interface_publica(self):
-        with patch.dict(os.environ, {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_LOCAL_DW': '1'}), patch.object(dados, 'carregar_contexto', side_effect=AssertionError('Acesso publico nao permitido')):
+        with patch.dict(os.environ, {'XFIT_DASHBOARD_DEMO': '0', 'XFIT_DASHBOARD_LOCAL_DW': '1'}), patch.object(dados, 'carregar_base', side_effect=AssertionError('Acesso publico nao permitido')):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'dashboard/app.py')).run(timeout=30)
         self.assertFalse(app.exception)
         self.assertEqual(len(app.metric), 0)

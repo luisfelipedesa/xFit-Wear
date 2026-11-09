@@ -112,10 +112,8 @@ class IndicadoresDashboardLocalTest(unittest.TestCase):
             with patch('dashboard.dados.conectar', return_value=nullcontext(leitor)), \
                     patch('dashboard.dados.configuracao_banco', return_value={'host': 'fixture-sql'}):
                 from dashboard import dados
-                dados._carregar_contexto.clear()
-                dados._carregar_painel.clear()
-                self.addCleanup(dados._carregar_contexto.clear)
-                self.addCleanup(dados._carregar_painel.clear)
+                dados._carregar_base.clear()
+                self.addCleanup(dados._carregar_base.clear)
                 atualizacao, unidades, categorias = carregar_contexto()
                 self.assertEqual(atualizacao['ultima_data_venda'], date(2020, 1, 3))
                 self.assertEqual(len(unidades), 2)
@@ -134,6 +132,43 @@ class IndicadoresDashboardLocalTest(unittest.TestCase):
                                      "from bi.vw_desempenho_mensal where ano_mes='2020-02'"), (100, False, None))
         self.assertEqual(self.leitura("select sum(meta_receita_liquida) from bi.vw_desempenho_mensal "
                                      "where ano_mes='2020-01'"), (300,))
+
+    def test_filtros_em_memoria_equivalem_ao_sql_das_views(self):
+        from dashboard import dados
+        from psycopg.rows import dict_row
+
+        self.conexao.execute('set local role xfit_dashboard')
+        with self.conexao.cursor(row_factory=dict_row) as leitor, \
+                patch.object(dados, 'conectar', return_value=nullcontext(leitor)), \
+                patch.object(dados, 'configuracao_banco', return_value={'host': 'fixture-equivalencia'}):
+            dados._carregar_base.clear()
+            self.addCleanup(dados._carregar_base.clear)
+            base = dados.carregar_base()
+            casos = [
+                (date(2020, 1, 1), date(2020, 1, 31), ['LJ-BQ', 'EC-BR'], ['loja_fisica', 'ecommerce'], None),
+                (date(2020, 1, 2), date(2020, 1, 2), ['LJ-BQ'], ['loja_fisica'], 'A'),
+                (date(2020, 1, 1), date(2020, 1, 31), ['EC-BR'], ['ecommerce'], None),
+                (date(2020, 2, 1), date(2020, 2, 29), ['LJ-BQ', 'EC-BR'], ['loja_fisica', 'ecommerce'], None),
+                (date(2020, 1, 1), date(2020, 12, 31), ['LJ-BQ', 'EC-BR'], ['loja_fisica', 'ecommerce'], None),
+                (date(2020, 1, 1), date(2020, 1, 31), [], ['loja_fisica'], None),
+                (date(2020, 1, 1), date(2020, 1, 31), ['LJ-BQ'], ['ecommerce'], None),
+                (date(2020, 1, 1), date(2020, 1, 31), ['LJ-BQ'], ['loja_fisica'], 'ausente'),
+            ]
+            for inicio, fim, unidades, canais, categoria in casos:
+                with self.subTest(inicio=inicio, fim=fim, unidades=unidades, categoria=categoria):
+                    vendas = dados.consultar_vendas(leitor, inicio, fim, unidades, canais, categoria)
+                    mix = leitor.execute(
+                        'select categoria, sum(receita_liquida_concluida) as receita_liquida_concluida '
+                        'from bi.vw_vendas_diarias_categoria where data_venda between %s and %s '
+                        'and unidade_id=any(%s) and canal=any(%s) and (%s::text is null or categoria=%s) '
+                        'group by categoria order by categoria',
+                        [inicio, fim, unidades, canais, categoria, categoria]).fetchall()
+                    mensais = leitor.execute(
+                        'select * from bi.vw_desempenho_mensal where ano_mes between %s and %s '
+                        'and unidade_id=any(%s) and canal=any(%s) order by ano_mes, unidade_id',
+                        [inicio.strftime('%Y-%m'), fim.strftime('%Y-%m'), unidades, canais]).fetchall()
+                    self.assertEqual(dados.filtrar_painel(base, inicio, fim, unidades, canais, categoria),
+                                     (vendas, mix, mensais))
 
     def test_categoria_unica_tem_pedidos_corretos_e_nao_reparte_meta(self):
         self.assertEqual(self.leitura("select sum(receita_liquida_concluida),sum(pedidos_concluidos) "

@@ -126,12 +126,20 @@ de dados brutos implementados pela aplicacao.
 
 ### Cache de consultas
 
-`dashboard/dados.py` usa `st.cache_data` somente em memoria, com TTL de 300
-segundos, ate oito entradas de contexto e 128 combinacoes do painel por processo.
-Data inicial/final, conjuntos de unidades/canais e categoria compoem a chave do
-painel. A configuracao BI inteira tambem participa do hash: mudar origem ou
+`dashboard/dados.py` usa `st.cache_resource` somente em memoria, com TTL de 300
+segundos e ate duas entradas de base por processo, identificadas pela configuracao BI. Cada base inclui o
+historico agregado das views de vendas diarias, categorias, desempenho mensal
+e atualizacao. A configuracao BI inteira participa do hash: mudar origem ou
 credencial nao reutiliza dados de outra configuracao. A configuracao e validada
 antes de cada acesso ao cache. Nao persistir o cache em disco.
+
+Uma conexao/uma transacao read-only em repeatable read carrega quatro SELECTs
+no cache miss. Contexto, datas das unidades e filtros usam o mesmo snapshot.
+A base e profundamente somente leitura (tuplas, mappings e valores escalares);
+nao ha desserializacao/copia integral a cada rerun. O app obtem essa base uma vez
+por rerun e copia somente as linhas selecionadas para montar o painel. Filtros
+novos nao abrem conexao. Vendas gerais e por categoria sao mantidas separadas
+para nao duplicar pedidos; dinheiro permanece Decimal e metas futuras preservadas.
 
 Resultados agregados sao compartilhados entre sessoes autorizadas a mesma base;
 o controle de acesso da tela roda antes de qualquer leitura, inclusive cache hit.
@@ -140,13 +148,15 @@ linha exigiriam rever a chave e o isolamento antes de adotar esse modelo.
 Conexoes continuam curtas, somente leitura, com TLS e papel restrito; nao sao
 guardadas no cache. Falhas nao viram resultados armazenados.
 
-Contexto e painel expiram independentemente; podem refletir instantes diferentes
-dentro da janela de cinco minutos. A proxima interacao apos expirar renova a
-respectiva entrada, sem atualizacao automatica de aba ociosa. Para invalidar tudo
+Contexto e painel expiram juntos com a base. A proxima interacao apos expirar
+renova a entrada inteira, sem atualizacao automatica de aba ociosa. Para invalidar tudo
 apos uma carga que precise aparecer imediatamente, reiniciar o processo do app.
 Limpar filtros nao limpa cache. Reinicio/redeploy tambem perde todo o cache.
-O limite e por quantidade de entradas, nao por bytes; conferir memoria real antes
-de ampliar o limite ou o historico. Nao ha promessa de ganho em consulta fria.
+O limite e de duas bases ao todo, nao duas por usuario e nem por filtro. O limite
+nao e por bytes: conferir memoria real antes de ampliar o historico. A primeira
+consulta apos reinicio ou expiracao le a base inteira; nao ha promessa de ganho
+em consulta fria. O TTL nao detecta uma carga imediatamente; publicacoes urgentes
+exigem invalidacao/reinicio do processo do dashboard.
 
 ## 4. AWS EC2
 
@@ -253,3 +263,39 @@ fechamento em navegador, filtros sem reabertura, nova sessao com apresentacao,
 leitura de setembro no DW (receita R$ 151.494,38; 1.222 pedidos), health HTTPS 200,
 container nao root/read-only/cap_drop ALL. Sem carga, grants ou upgrade de planos.
 Pagina Vercel removida conforme descrito acima. Commit/push nao executados.
+
+## Revisao do modal e atualizacao por unidade — 03/11/2026
+
+Imagem vigente `xfit-dashboard:unidades-20261102`, ID
+`06f2fb24596eaa5e8e904f2f263bc42473a483b7ce2a2da229afaf1db61a752c`.
+Apresentacao detalha orquestracao, tratamento, modelo dimensional, schemas e
+seguranca. A regra de publicacao individual esta em contrato_tratamento_diario.md
+v2; o Airflow local usa fontes montadas do checkout e importou a DAG sem erros.
+Nao foi disparada carga real ou habilitada agenda. Dashboard continua no mesmo
+HTTPS AWS; modelo e texto validados visualmente. Backup do app/override anteriores
+em `/home/ec2-user/xfit-unidades-20261102/antes/`, com hashes conferidos.
+
+Verificacao desta revisao: 38 testes da interface, 23 de tratamento em Linux,
+12 em PostgreSQL 16 descartavel e tres de DAGs Airflow aprovados. Os testes de
+banco sao independentes dos dados do Supabase e nao comprovam uma carga real.
+
+## Base BI compartilhada em cache — 03/11/2026
+
+Imagem vigente `xfit-dashboard:cache-base-20261103`, ID
+`0f20e0a08cadd2132bb7b5cbbf723cde877437588804084b326250f6203dc47c`.
+Somente app.py, apresentacao.py e dados.py atualizados. Imagem anterior e backup
+com hashes conferidos em `/home/ec2-user/xfit-cache-base-20261103/antes/`.
+Container saudavel; proxy, limites, usuario, segredos e permissoes preservados.
+
+Verificacao: 38 testes da interface, 13 do cache e 15 SQL em PostgreSQL 16
+descartavel aprovados. Filtros locais comparados com consultas reais das views
+em oito cenarios, incluindo categoria, datas, vazio e metas sem vendas.
+Leitura do DW real encontrou 7.292 linhas diarias, 40.718 por categoria e 277
+mensais. Benchmark Windows: base fria 3,641 s; mediana de acesso ao cache mais
+filtro 0,0091 s em 11 combinacoes, com uma conexao/quatro SELECTs no total.
+Nao inclui renderizacao dos graficos ou latencia completa do navegador.
+
+Navegador publico: setembro R$ 151.494,38; Leggings R$ 29.659,02; combinado com
+Barbacena R$ 6.575,35. Memoria observada do container com base carregada:
+212,9 MiB de 768 MiB; nao e teste de concorrencia/capacidade maxima. Sem escrita
+no DW, nova migration/grant, commit/push ou upgrade de recursos.

@@ -103,8 +103,9 @@ registra a execução e o estado das cargas; `dw` mantém dimensões e fatos;
     with st.expander('04 · Como o dashboard consome os dados com segurança?'):
         st.write('O Streamlit consulta views privadas de BI, em vez de ler os arquivos do lake '
                  'diretamente. As views centralizam os cálculos e entregam os agregados usados '
-                 'nos cards, gráficos e filtros. Consultas repetidas podem reutilizar resultados '
-                 'por até cinco minutos para reduzir acessos ao banco.')
+                 'nos cards, gráficos e filtros. A base agregada fica compartilhada em memória '
+                 'por até cinco minutos; os filtros trabalham sobre essa base, sem consultar '
+                 'novamente o banco a cada seleção.')
         st.write('A conexão usa TLS com validação do certificado e uma credencial exclusiva de '
                  'leitura, sem acesso direto às tabelas internas ou permissão para alterar o DW. '
                  'Os filtros usam parâmetros SQL. Senhas e arquivos operacionais ficam fora do '

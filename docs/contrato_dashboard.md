@@ -265,3 +265,35 @@ o modal; filtros, graficos e Limpar filtros nao reabrem a apresentacao.
 Nova aba ou recarga completa pode criar nova sessao e exibi-la novamente.
 Sem persistencia por visitante, cookies ou localStorage. As regras de indicadores,
 acesso publico/privado, cache e conexao BI continuam as existentes.
+
+## Atualizacoes independentes por unidade — 02/11/2026
+
+Pedido posterior do usuario permite publicar a unidade/data aprovada sem esperar
+as demais. O dashboard consulta o historico consolidado no DW: quem nao entregou
+mantem os dados validos anteriores, com datas originais. Os filtros continuam
+limitando o periodo analisado; nao transportar vendas antigas para o periodo
+atual para preencher uma unidade atrasada. A ultima data por unidade permanece
+visivel no farol, cuja divergencia agora pode resultar dessa atualizacao independente.
+
+`ultima_data_diaria_publicada` continua representando o legado de carga conjunta;
+o rotulo e "Ultimo dia publicado em conjunto". Atualizacoes individuais usam
+registros de carga por unidade e nao alteram esse campo legado. Sem nova migration
+ou concessao de acesso a tabelas operacionais para o login do dashboard.
+
+## Cache da base agregada — 03/11/2026
+
+O cache por combinacao de filtros foi substituido por uma base BI compartilhada
+por processo/configuracao de acesso, com todas as linhas das views diarias,
+por categoria e mensais, alem da atualizacao. Quatro SELECTs em uma transacao
+read-only/repeatable read produzem o mesmo snapshot para contexto e indicadores.
+
+A base e imutavel e nao e enviada integralmente ao navegador. Filtros de datas,
+unidade, canal e categoria operam no servidor, em memoria; apenas resultados
+selecionados alimentam a interface. Pedidos gerais nunca sao obtidos somando
+categorias. Decimal, datas inclusivas, metas futuras, ausencia/zero e regras de
+categoria/periodo parcial permanecem iguais ao contrato SQL.
+
+TTL 300 segundos, no maximo duas bases por processo. Configuracao BI validada e
+autorizacao da tela antecedem o acesso. Contexto e painel renovam juntos na
+interacao apos a expiracao. Carga do pipeline nao invalida automaticamente esse
+cache: aguardar TTL ou reiniciar o app se a exibicao precisar ser imediata.

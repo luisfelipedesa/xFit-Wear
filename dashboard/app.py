@@ -58,7 +58,12 @@ elif not modo_local:
 apresentar_projeto_na_abertura()
 
 try:
-    atualizacao, unidades, categorias = demo.contexto() if modo_demo else dados.carregar_contexto()
+    if modo_demo:
+        atualizacao, unidades, categorias = demo.contexto()
+    else:
+        with st.spinner('Carregando base de indicadores…'):
+            base = dados.carregar_base()
+        atualizacao, unidades, categorias = base['contexto']
 except (dados.ConfiguracaoInvalida, dados.psycopg.Error):
     st.error('Não foi possível consultar o DW. Verifique a configuração BI, TLS e disponibilidade no servidor.')
     st.stop()
@@ -90,7 +95,7 @@ with st.expander('Cobertura e atualização', expanded=True):
     st.caption('Atualizações individuais preservam as datas de cada unidade, exibidas no farol acima. O histórico de publicação conjunta é mantido separadamente.')
     st.caption(f"Cargas sem conclusão: {atualizacao['cargas_sem_conclusao']} · Registros históricos de erro: {atualizacao['cargas_com_erro']}")
     if not modo_demo:
-        st.caption('As consultas podem reutilizar dados por até 5 minutos. Após esse prazo, a próxima interação consulta o DW novamente.')
+        st.caption('Os indicadores podem refletir a base carregada nos últimos 5 minutos. Após esse prazo, a próxima interação busca uma nova versão no DW.')
 
 inicio_padrao, fim_padrao = periodo_padrao(atualizacao['ultima_data_venda'])
 todos_canais = sorted({linha['canal'] for linha in unidades})
@@ -157,8 +162,10 @@ if not selecionadas or not canais:
     st.stop()
 try:
     with st.spinner('Consultando indicadores…'):
-        carregar = demo.carregar if modo_demo else dados.carregar_painel
-        vendas, mix, mensais = carregar(inicio, fim, selecionadas, canais, categoria)
+        if modo_demo:
+            vendas, mix, mensais = demo.carregar(inicio, fim, selecionadas, canais, categoria)
+        else:
+            vendas, mix, mensais = dados.filtrar_painel(base, inicio, fim, selecionadas, canais, categoria)
 except (dados.ConfiguracaoInvalida, dados.psycopg.Error):
     st.error('Consulta indisponível. Nenhuma alteração foi realizada no DW.')
     st.stop()

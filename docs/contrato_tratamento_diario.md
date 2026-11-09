@@ -1,4 +1,46 @@
-# Contrato do tratamento diario - v1
+# Contrato do tratamento diario — v2
+
+Regra vigente em 02/11/2026, por instrucao do usuario: cada unidade alimenta e
+atualiza o DW independentemente. Se uma unidade nao entregar dados validos,
+preservar os ultimos dados aprovados dessa unidade, com as datas de origem.
+
+## Publicacao independente por unidade/data
+
+- Recebimentos e tratamentos continuam em tres ramos independentes do Airflow.
+- `publicar_unidades`, com `all_done`, examina os lotes aprovados da execucao
+  corrente. Nao escolhe arquivo bruto mais recente nem usa XCom de outra data.
+- Cada lote aprovado recebe manifesto de publicacao com `unidade` explicita e
+  selecao de exatamente essa unidade. O conteudo, unidade e data sao conferidos
+  novamente no carregamento; reprovado, pendente ou em revisao nao e publicado.
+- Publicacoes sao sequenciais, uma transacao por unidade, para respeitar o lock
+  global do DW. Falha em uma nao cancela o processamento das demais. O resumo
+  termina em falha se houver pendencias, evitando ocultar atualizacao parcial.
+- Identidade no banco: `dw-diario-YYYYMMDD-<unidade>`. Repeticao identica confere
+  staging/DW e nao duplica itens. Conteudo alterado exige revisao.
+- Omissao de itens e verificada somente na unidade/data da publicacao. Nao exigir
+  que um lote contenha vendas das outras unidades; nao apagar o historico delas.
+- Uma entrega atrasada pode ser publicada depois para sua data original.
+  Ausencia nao vira zero, e valores antigos nao sao copiados para datas novas.
+- Mantem hashes, precisao Decimal, snapshots de referencias, bloqueio de lote
+  invalido, integridade SQL, reconciliacao e tratamento de commit indeterminado.
+- Metas/produtos continuam referencias compartilhadas; referencias divergentes
+  do que ja foi publicado continuam exigindo revisao, sem atualizacao silenciosa.
+- Modo manual e `publicar_dw=false` por padrao preservados. Esta mudanca nao
+  ativa agenda, retries, cargas de producao ou alteracoes de grants.
+
+O campo BI `ultima_data_diaria_publicada` continua descrevendo as publicacoes
+conjuntas legadas. A interface o identifica como tal; datas individuais sao
+exibidas no farol. Nao houve migration ou alteracao da view neste ajuste.
+
+Compatibilidade: `consolidar_dia` sem escopo de unidade mantem o modo conjunto;
+manifestos antigos das tres unidades continuam legiveis. O tratamento de lotes
+permanece na versao 1 para nao invalidar aprovacoes anteriores. O modo individual
+e solicitado pela CLI com `--aprovar-unidade <unidade>`.
+
+## Contrato anterior v1 (historico)
+
+As exigencias abaixo de publicacao conjunta foram substituidas pela v2 acima.
+As regras de qualidade, identidade e integridade continuam aplicaveis.
 
 Data: 2026-10-18.
 Estado: implementado por `src/tratar_diario.py`, `src/carregar_diario_postgres.py`
