@@ -1,4 +1,4 @@
-"""Fluxos manuais para validar fontes e promover a carga historica xFit Wear."""
+"""Ingestao diaria agendada e fluxos de validacao/reprocessamento xFit Wear."""
 
 from datetime import timedelta
 from hashlib import sha256
@@ -9,8 +9,21 @@ import sys
 
 import pendulum
 from airflow.sdk import dag, task, get_current_context, Param
+from airflow.timetables.trigger import CronTriggerTimetable
 
 RAIZ = Path('/opt/xfit')
+
+
+def parametros_da_ingestao(contexto):
+    parametros = dict(contexto['params'])
+    agendada = getattr(contexto.get('dag_run'), 'run_type', None) == 'scheduled'
+    if agendada or not parametros.get('data_referencia'):
+        # A data pertence ao disparo previsto, mesmo se a execucao atrasar ou for repetida.
+        referencia = pendulum.instance(contexto['data_interval_end']).in_timezone('America/Sao_Paulo')
+        parametros['data_referencia'] = referencia.subtract(days=1).to_date_string()
+    if agendada:
+        parametros['publicar_dw'] = True
+    return parametros
 
 
 @task
@@ -90,7 +103,7 @@ fluxo_alimentar_datalake()
 
 @task(execution_timeout=timedelta(minutes=10))
 def receber_dia(carga_id, unidade):
-    params = get_current_context()['params']
+    params = parametros_da_ingestao(get_current_context())
     selecionado = params.get('recebimentos', {}).get(unidade)
     if selecionado:
         return selecionado
@@ -105,7 +118,7 @@ def receber_dia(carga_id, unidade):
 
 @task(execution_timeout=timedelta(minutes=15))
 def tratar_dia(carga_id, recebimento, unidade):
-    data = get_current_context()['params']['data_referencia']
+    data = parametros_da_ingestao(get_current_context())['data_referencia']
     subprocess.run([sys.executable, '-B', str(RAIZ / 'src/tratar_diario.py'),
                     '--unidade', unidade, '--data-referencia', data,
                     '--carga-recebimento', recebimento, '--carga-id', carga_id], cwd=RAIZ, check=True)
@@ -115,7 +128,7 @@ def tratar_dia(carga_id, recebimento, unidade):
 @task(execution_timeout=timedelta(minutes=90), trigger_rule='all_done')
 def publicar_unidades(carga_id):
     contexto = get_current_context()
-    params = contexto['params']
+    params = parametros_da_ingestao(contexto)
     resultados = {}
     # Sequencial apenas na escrita: o DW tem um bloqueio global de carga.
     for unidade in ('barbacena', 'lafaiete', 'ecommerce'):
@@ -144,15 +157,16 @@ def publicar_unidades(carga_id):
     return resultados
 
 
-@dag(dag_id='xfit_pipeline_diario', schedule=None,
-     start_date=pendulum.datetime(2026, 10, 18, tz='America/Sao_Paulo'),
+@dag(dag_id='xfit_pipeline_diario',
+     schedule=CronTriggerTimetable('0 4 * * *', timezone='America/Sao_Paulo', run_immediately=False),
+     start_date=pendulum.datetime(2026, 11, 10, 4, tz='America/Sao_Paulo'),
      catchup=False, max_active_runs=1, default_args={'retries': 0},
-     is_paused_upon_creation=True, tags=['xfit', 'diario', 'dw'],
+     is_paused_upon_creation=False, tags=['xfit', 'diario', 'dw'],
      params={'data_referencia': Param(None, type=['null', 'string'], format='date'),
              'recebimentos': Param({}, type='object', additionalProperties={'type': 'string'},
                                    propertyNames={'enum': ['barbacena', 'lafaiete', 'ecommerce']}),
              'publicar_dw': Param(False, type='boolean')},
-     description='Recebe e trata por unidade; publica aprovadas e preserva historico das unidades pendentes.')
+     description='Diariamente as 04h de Sao Paulo, recebe e publica unidades aprovadas do dia anterior.')
 def fluxo_pipeline_diario():
     carga_id = identificar_carga()
     tratamentos = []

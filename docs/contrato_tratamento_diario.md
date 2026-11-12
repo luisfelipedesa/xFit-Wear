@@ -25,8 +25,10 @@ preservar os ultimos dados aprovados dessa unidade, com as datas de origem.
   invalido, integridade SQL, reconciliacao e tratamento de commit indeterminado.
 - Metas/produtos continuam referencias compartilhadas; referencias divergentes
   do que ja foi publicado continuam exigindo revisao, sem atualizacao silenciosa.
-- Modo manual e `publicar_dw=false` por padrao preservados. Esta mudanca nao
-  ativa agenda, retries, cargas de producao ou alteracoes de grants.
+- Desde 09/11/2026, a ingestao integrada e agendada para 04h00 de Sao Paulo,
+  com data D-1 calculada pelo disparo previsto e publicacao das unidades aprovadas.
+  Em disparos manuais, data explicita permite reprocessar e publicar_dw=false
+  continua disponivel para validacao local.
 
 O campo BI `ultima_data_diaria_publicada` continua descrevendo as publicacoes
 conjuntas legadas. A interface o identifica como tal; datas individuais sao

@@ -38,7 +38,8 @@ hash declarados. Uma ausencia nao bloqueia os outros recebimentos. O resumo
 roda depois de todas as tarefas e fica em falha quando existe pendencia, para
 que o painel nao apresente um recebimento incompleto como sucesso.
 
-O fluxo e manual. No disparo, informar `data_referencia` em `YYYY-MM-DD`.
+A DAG isolada `xfit_alimentar_datalake` permite disparo manual com
+`data_referencia` em `YYYY-MM-DD`. A ingestao integrada descrita abaixo e diaria.
 Falta de recibo/arquivo produz `ausente`; entrega divergente produz `erro`;
 entrega aceita produz `recebida` ou `sem_movimento`. A sinalizacao aparece no
 Airflow e nos relatorios locais; nao envia email ou notificacao externa.
@@ -129,11 +130,21 @@ de carga e transacao proprios. A escrita e sequencial para respeitar o lock glob
 Falha em uma publicacao nao impede tentar as demais; o resumo sinaliza pendencias
 com falha da tarefa/DAG. Unidades sem entrega valida mantem seu historico no DW.
 
-`publicar_dw=false` executa recebimento, tratamento e aprovacao local, mas nao
-abre conexao PostgreSQL. `true` conecta com papel restrito/TLS e publica cada lote
-aprovado; nao reabre os arquivos historicos. A DAG inicia pausada, sem schedule e
-sem retries. Despausar no painel quando for executar; nao habilitar carga remota
-antes de corrigir/verificar a configuracao local de conexao.
+Desde 09/11/2026, `xfit_pipeline_diario` executa diariamente as 04h00 no fuso
+America/Sao_Paulo. A primeira execucao prevista e 10/11/2026 as 04h00. A data de
+referencia e o dia anterior ao horario previsto do disparo, calculada no mesmo
+fuso em todas as etapas. Atraso de execucao preserva essa referencia. O disparo
+agendado publica automaticamente os lotes aprovados por unidade.
+
+Em disparos manuais, informar outra data permite reprocessamento. Data vazia usa
+o dia anterior ao disparo. Nesse modo, `publicar_dw=false` permite validar antes
+de publicar e `true` habilita a escrita com o papel restrito/TLS. A agenda usa
+catchup=false e max_active_runs=1. Tentativas automaticas permanecem em zero.
+
+O Airflow executa no Docker Desktop deste computador. Para cumprir as 04h00, o
+computador e os servicos Docker/Airflow precisam estar em funcionamento. Ausencia
+de arquivos ou falha de qualidade gera pendencia por unidade e preserva os dados
+anteriores. Validar o primeiro run pelo historico do Airflow.
 
 As saidas ficam em `data/processed/staging_diaria/`, fora do Git e com volume de
 escrita proprio no Docker. Cada lote inclui vendas, produtos/metas padronizados,

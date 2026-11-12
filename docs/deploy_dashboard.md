@@ -299,3 +299,13 @@ Navegador publico: setembro R$ 151.494,38; Leggings R$ 29.659,02; combinado com
 Barbacena R$ 6.575,35. Memoria observada do container com base carregada:
 212,9 MiB de 768 MiB; nao e teste de concorrencia/capacidade maxima. Sem escrita
 no DW, nova migration/grant, commit/push ou upgrade de recursos.
+
+## Agenda da ingestao no modal — 09/11/2026
+
+Imagem vigente `xfit-dashboard:agenda-20261109`, ID
+`288d45f17e1f5e7356c37238fc5511eec844d39545e1b34812c299fa60db4ea8`.
+Apresentacao informa ingestao diaria as 04h00 de Sao Paulo, com referencia D-1.
+Backup verificado em `/home/ec2-user/xfit-agenda-20261109/antes/`. Container
+saudavel e texto da agenda conferido na imagem em execucao. 38 testes de interface
+aprovados. O scheduler fica no Docker Desktop local e depende do computador e
+dos servicos em funcionamento. Primeira execucao prevista em 10/11/2026.

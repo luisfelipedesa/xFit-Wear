@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 import shutil
 import tempfile
 import unittest
@@ -51,7 +52,8 @@ class FluxosAirflowTest(unittest.TestCase):
         self.assertEqual(set(fluxos.dags), {'xfit_validar_fontes', 'xfit_carga_dw',
                                           'xfit_alimentar_datalake', 'xfit_pipeline_diario'})
         for fluxo in fluxos.dags.values():
-            self.assertIsNone(fluxo.schedule)
+            if fluxo.dag_id != 'xfit_pipeline_diario':
+                self.assertIsNone(fluxo.schedule)
             self.assertEqual(fluxo.max_active_runs, 1)
             self.assertTrue(all(tarefa.retries == 0 for tarefa in fluxo.tasks))
         carga = fluxos.dags['xfit_carga_dw'].get_task('executar_pipeline')
@@ -70,6 +72,48 @@ class FluxosAirflowTest(unittest.TestCase):
         self.assertEqual(diario.get_task('publicar_unidades').upstream_task_ids,
                          {'identificar_carga', 'tratar_barbacena', 'tratar_lafaiete', 'tratar_ecommerce'})
         self.assertFalse(diario.params['publicar_dw'])
+
+    def test_agenda_dispara_as_04h_a_partir_da_primeira_data_programada(self):
+        import pendulum
+        from airflow.timetables.base import TimeRestriction
+
+        fluxo = DagBag(dag_folder=str(Path(__file__).resolve().parents[1] / 'airflow/dags')).dags['xfit_pipeline_diario']
+        timetable = fluxo.timetable
+        # Conferir tambem a configuracao serializada que o scheduler usa.
+        timetable = type(timetable).deserialize(timetable.serialize())
+        restricao = TimeRestriction(earliest=fluxo.start_date, latest=None, catchup=False)
+        for agora in (pendulum.datetime(2026, 11, 9, 13, tz='UTC'),
+                      pendulum.datetime(2026, 11, 9, 7, 1, tz='UTC')):
+            with self.subTest(agora=agora), patch('airflow.timetables.trigger.utcnow', return_value=agora):
+                proxima = timetable.next_dagrun_info(last_automated_data_interval=None, restriction=restricao)
+                self.assertEqual(proxima.run_after, pendulum.datetime(2026, 11, 10, 7, tz='UTC'))
+                seguinte = timetable.next_dagrun_info(last_automated_data_interval=proxima.data_interval,
+                                                       restriction=restricao)
+                self.assertEqual(seguinte.run_after, pendulum.datetime(2026, 11, 11, 7, tz='UTC'))
+
+    def test_data_automatica_usa_dia_anterior_local_e_publica_unidades_aprovadas(self):
+        import pendulum
+
+        fluxo = DagBag(dag_folder=str(Path(__file__).resolve().parents[1] / 'airflow/dags')).dags['xfit_pipeline_diario']
+        resolver = fluxo.get_task('receber_barbacena').python_callable.__globals__['parametros_da_ingestao']
+        for instante, esperado in (('2026-11-10T07:00:00Z', '2026-11-09'),
+                                   ('2027-01-01T07:00:00Z', '2026-12-31'),
+                                   ('2026-11-01T02:00:00Z', '2026-10-30')):
+            with self.subTest(instante=instante):
+                contexto = {'params': {'data_referencia': '2020-01-01', 'publicar_dw': False},
+                            'dag_run': SimpleNamespace(run_type='scheduled'),
+                            'data_interval_end': pendulum.parse(instante)}
+                parametros = resolver(contexto)
+                self.assertEqual(parametros['data_referencia'], esperado)
+                self.assertTrue(parametros['publicar_dw'])
+                self.assertEqual(contexto['params']['data_referencia'], '2020-01-01')
+        manual = {'params': {'data_referencia': '2026-10-31', 'publicar_dw': False},
+                  'dag_run': SimpleNamespace(run_type='manual')}
+        self.assertEqual(resolver(manual), manual['params'])
+        manual['params']['data_referencia'] = None
+        manual['data_interval_end'] = pendulum.parse('2026-11-10T07:00:00Z')
+        self.assertEqual(resolver(manual)['data_referencia'], '2026-11-09')
+        self.assertFalse(resolver(manual)['publicar_dw'])
 
     def test_publicacao_continua_apos_ausencia_e_erro_de_uma_unidade(self):
         fluxo = DagBag(dag_folder=str(Path(__file__).resolve().parents[1] / 'airflow/dags')).dags['xfit_pipeline_diario']

@@ -50,8 +50,9 @@ def apresentar_projeto():
                     'O dashboard continua exibindo esse histórico, com as datas originais. '
                     'Dados antigos não são copiados para o dia atual nem apresentados como novos. '
                     'O farol mostra a última data disponível de cada unidade e evidencia a defasagem.')
-        st.caption('As DAGs são acionadas manualmente, com data de referência explícita. '
-                   'Essa proteção preserva os dados; a disponibilidade da tela também depende do servidor e do banco.')
+        st.caption('A ingestão diária é agendada para as 04h00, no horário de São Paulo, '
+                   'com a data do dia anterior calculada automaticamente. As entregas aprovadas '
+                   'atualizam o DW por unidade. Reprocessamentos permitem escolher outra data no Airflow.')
 
     with st.expander('02 · Como os arquivos são tratados e validados?'):
         st.markdown('''
